@@ -17,7 +17,7 @@ import (
 // VerificationToken 请求头中携带token
 func VerificationToken() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := c.Request.Header.Get("token")
+		token := c.Request.Header.Get("Authorization")
 
 		//验证是否为redis中的最新token；如果不是，就踹下线
 		//todo：现在逻辑大体是对的，但是只有在访问需要登陆的接口时，才会把旧的连接踹掉，需要考虑怎么立刻把旧的连接踹掉

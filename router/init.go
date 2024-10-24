@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 	middlewares "gomall/middleware"
+	cartRouter "gomall/router/cart"
 	homeRouter "gomall/router/home"
 	usersRouter "gomall/router/users"
 )
@@ -10,6 +11,7 @@ import (
 type RouterGroup struct {
 	Users usersRouter.RouterGroup
 	Home  homeRouter.RouterGroup
+	Cart  cartRouter.RouterGroup
 }
 
 var RoutersGroup = new(RouterGroup)
@@ -26,6 +28,7 @@ func InitRouter() {
 		//初始化各个路由器组
 		RoutersGroup.Users.LoginRouter.InitLoginRouter(PrivateGroup)
 		RoutersGroup.Home.HomeRouter.InitHomeRouter(PrivateGroup)
+		RoutersGroup.Cart.InitCartRouter(PrivateGroup)
 	}
 
 	if err := router.Run(":9090"); err != nil {

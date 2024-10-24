@@ -3,8 +3,10 @@ package jwt
 import (
 	"errors"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"gomall/consts"
 	"gomall/global"
+	"gomall/models/users"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -21,6 +23,7 @@ var SaltStr = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 type Claims struct {
 	UserID    int64
 	LoginTime string
+	User      users.User `json:"user"`
 	jwt.StandardClaims
 }
 
@@ -64,4 +67,13 @@ func ParseToken(tokenStr string) (*Claims, error) {
 		return claims, nil
 	}
 	return nil, errors.New("invalid token")
+}
+
+func GetMemberIdFromCtx(ctx *gin.Context) (int64, error) {
+	token := ctx.Request.Header.Get("Authorization")
+	claims, err := ParseToken(token)
+	if err != nil {
+		return 0, errors.New("从ctx中获取MemberId出错:" + err.Error())
+	}
+	return claims.UserID, nil
 }
