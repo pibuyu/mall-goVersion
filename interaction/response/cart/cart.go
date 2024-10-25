@@ -5,7 +5,7 @@ type GetCartProductResponseStruct struct {
 	//pms_product表
 	Id   int64  `json:"id"`
 	Name string `json:"name"`
-	//todo:这个字段在返回的数据中为空值
+	//todo:这个字段与原项目的字段设置不一致（subTitle），按原项目设置读不出值
 	SubTitle                   string  `json:"sub_title" gorm:"column:sub_title"`
 	Price                      float32 `json:"price"`
 	Pic                        string  `json:"pic"`
