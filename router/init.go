@@ -5,6 +5,7 @@ import (
 	middlewares "gomall/middleware"
 	cartRouter "gomall/router/cart"
 	homeRouter "gomall/router/home"
+	orderRouter "gomall/router/order"
 	readHistoryRouter "gomall/router/readHistory"
 	usersRouter "gomall/router/users"
 )
@@ -14,6 +15,7 @@ type RouterGroup struct {
 	Home        homeRouter.RouterGroup
 	Cart        cartRouter.RouterGroup
 	ReadHistory readHistoryRouter.RouterGroup
+	OrderRouter orderRouter.RouterGroup
 }
 
 var RoutersGroup = new(RouterGroup)
@@ -32,6 +34,7 @@ func InitRouter() {
 		RoutersGroup.Home.HomeRouter.InitHomeRouter(PrivateGroup)
 		RoutersGroup.Cart.InitCartRouter(PrivateGroup)
 		RoutersGroup.ReadHistory.InitReadHistoryRouter(PrivateGroup)
+		RoutersGroup.OrderRouter.InitOrderRouter(PrivateGroup)
 	}
 
 	if err := router.Run(":9090"); err != nil {

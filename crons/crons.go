@@ -15,7 +15,6 @@ func InitCrons() {
 	//在这里启动消费者
 	kafkaConsumer.StartNormalConsumer()
 	kafkaConsumer.StartDelayConsumer()
-
 }
 
 // AddTask 添加定时任务

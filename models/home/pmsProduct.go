@@ -1,6 +1,10 @@
 package home
 
-import "time"
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"time"
+)
 
 type PmsProduct struct {
 	Id                         int64     `json:"id" gorm:"id"`
@@ -48,6 +52,17 @@ type PmsProduct struct {
 }
 type PmsProductList []PmsProduct
 
+// 为PmsProduct结构体实现Valuer接口，用于将结构体转换为数据库可存储的值
+func (p *PmsProduct) Value() (driver.Value, error) {
+	// 将结构体转换为JSON字节数组
+	return json.Marshal(p)
+}
+
+// 为PmsProduct结构体实现Scanner接口，用于将从数据库读取的值转换为结构体
+func (p *PmsProduct) Scanner(val interface{}) error {
+	// 从数据库读取的值通常是字节数组形式，将其转换为结构体
+	return json.Unmarshal(val.([]byte), p)
+}
 func (PmsProduct) TableName() string {
 	return "pms_product"
 }

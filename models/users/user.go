@@ -1,6 +1,7 @@
 package users
 
 import (
+	"errors"
 	"gomall/global"
 	"gomall/models/common"
 	"time"
@@ -29,6 +30,20 @@ type User struct {
 
 func (User) TableName() string {
 	return "ums_member"
+}
+
+func (user *User) GetMemberById(memberId int64) (err error) {
+	if err := global.Db.Model(&User{}).Where("id = ?", memberId).First(&user).Error; err != nil {
+		return errors.New("根据id查询用户出错:" + err.Error())
+	}
+	return
+}
+
+func (user *User) Update() (err error) {
+	if err = global.Db.Model(&User{}).Updates(user).Error; err != nil {
+		return errors.New("修改用户信息出错:" + err.Error())
+	}
+	return nil
 }
 
 func (us *User) IsExistByField(field string, value any) bool {

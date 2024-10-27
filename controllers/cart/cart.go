@@ -103,7 +103,7 @@ func (c *CartController) CartListPromotion(ctx *gin.Context) {
 			c.Response(ctx, "用户身份校验失败", nil, err)
 			return
 		}
-		cartPromotionItemList, err := cart.CartListPromotion(rec, memberId)
+		cartPromotionItemList, err := cart.CartListPromotion(rec.CartIds, memberId)
 		if err != nil {
 			c.Response(ctx, "获取当前会员的购物车列表失败", nil, err)
 			return

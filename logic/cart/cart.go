@@ -9,6 +9,7 @@ import (
 	receive "gomall/interaction/receive/cart"
 	response "gomall/interaction/response/cart"
 	"gomall/models/cart"
+	"gomall/models/home"
 	"gomall/utils/jwt"
 	"sort"
 	"time"
@@ -137,7 +138,6 @@ func GetProductById(data *receive.GetProductByIdRequestStruct) (results *respons
 }
 
 func List(memberId int64) (results cart.OmsCartItemList, err error) {
-	//delete_status=0  &&  memberId=param
 	if err := global.Db.Model(&cart.OmsCartItem{}).Where("delete_status = ?", 0).
 		Where("member_id = ?", memberId).Find(&results).Error; err != nil {
 		return nil, errors.New("获取购物车全部信息时查表出错:" + err.Error())
@@ -146,14 +146,15 @@ func List(memberId int64) (results cart.OmsCartItemList, err error) {
 }
 
 // CartListPromotion 获取包含促销活动信息的购物车列表
-func CartListPromotion(data *receive.CartListPromotionRequestStruct, memberId int64) (results cart.CartPromotionItemList, err error) {
+func CartListPromotion(cartIds []int64, memberId int64) (results cart.CartPromotionItemList, err error) {
 	//先找到当前会员的购物车列表
 	cartItemList, err := List(memberId)
+	//global.Logger.Infof("List方法获取到的cartItemList长度为%d", len(cartItemList))
 	if err != nil {
 		return nil, errors.New("查询会员的购物车信息出错:" + err.Error())
 	}
-	//过滤一下data.cartIds，确保其存在于当前会员的cartItemList中
 
+	//过滤一下data.cartIds，确保其存在于当前会员的cartItemList中
 	filteredItemList := make([]cart.OmsCartItem, 0)
 	//将会员购物车里的itemId转化为map
 	cartIdSet := make(map[int64]struct{})
@@ -162,7 +163,7 @@ func CartListPromotion(data *receive.CartListPromotionRequestStruct, memberId in
 	}
 
 	//收集合法的ids
-	for _, cartId := range data.CartIds {
+	for _, cartId := range cartIds {
 		if _, exist := cartIdSet[cartId]; exist {
 			for _, item := range cartItemList {
 				if item.Id == cartId {
@@ -171,12 +172,14 @@ func CartListPromotion(data *receive.CartListPromotionRequestStruct, memberId in
 			}
 		}
 	}
+
 	//然后计算购物车促销信息
 	if len(filteredItemList) != 0 {
 		results, err = calcCartPromotion(filteredItemList)
 		if err != nil {
 			return nil, errors.New("计算购物车促销信息出错:" + err.Error())
 		}
+		//global.Logger.Infof("计算购物车促销信息得到的结果为:%v", results)
 		return results, nil
 	}
 	return
@@ -185,16 +188,23 @@ func CartListPromotion(data *receive.CartListPromotionRequestStruct, memberId in
 func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList cart.CartPromotionItemList, err error) {
 	//1.现根据productId对cartItemList进行分组，以spu为单位计算优惠
 	productCartMap := groupCartItemBySpu(cartItemList)
+
 	//2.查询所有商品的优惠相关信息
 	promotionProductList, err := getPromotionProductList(cartItemList)
 	if err != nil {
 		return nil, err
 	}
+
+	//todo:经过下面的逻辑处理后，返回的cartPromotionItemList为空，需要排查一下.初步分析为：getPromotionProductList函数调用了那个可能改错了的sql，
+	// 返回的优惠信息为空，导致promotionType=0，进入了handleNoReduce，传进去的是空的cartPromotionItemList，导致最后返回的也是空列表
 	//3.根据商品促销类型计算商品促销优惠价格
 	cartPromotionItemList = make([]cart.CartPromotionItem, 0)
 	for productId, itemList := range productCartMap {
+		//从promotionProductList找到productId=productId的那项
 		promotionProduct := getPromotionProductById(productId, promotionProductList)
+		//global.Logger.Infof("promotionProduct为：%v,对应的promotionType为:%d", promotionProduct, promotionProduct.Product.PromotionType)
 		promotionType := promotionProduct.Product.PromotionType
+		//promotionType：0->没有促销使用原价;1->使用促销价；2->使用会员价；3->使用阶梯价格；4->使用满减价格；5->限时购
 		if promotionType == 1 {
 			for _, item := range itemList {
 				cartPromotionItem := copyFromOmsCartItem(item)
@@ -231,7 +241,15 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 				}
 			}
 		} else {
-			handleNoReduce(cartPromotionItemList, itemList, promotionProduct)
+			//todo:也许这里应该传递过去的是指针切片，这样就可以直接修改cartPromotionItemList了
+			pointerCartPromotionItemList := make([]*cart.CartPromotionItem, 0)
+			for _, item := range cartPromotionItemList {
+				pointerCartPromotionItemList = append(pointerCartPromotionItemList, &item)
+			}
+			result := handleNoReduce(pointerCartPromotionItemList, itemList, promotionProduct)
+			for _, item := range result {
+				cartPromotionItemList = append(cartPromotionItemList, *item)
+			}
 		}
 	}
 	return cartPromotionItemList, nil
@@ -265,39 +283,118 @@ func getPromotionProductList(cartItemList []cart.OmsCartItem) (results []cart.Pr
 	}
 	//然后根据这些ids去查询优惠信息
 	results, err = getProductPromotionByIds(productIdList)
+	for _, item := range results {
+		global.Logger.Infof("getProductPromotionByIds方法返回的results中的product字段为：%v\n,SkuStockList字段为：%v\n,ProductLadderList字段为：%v\n,ProductFullReduction字段为:%v\n", item.Product, item.SkuStockList, item.ProductLadderList, item.ProductFullReduction)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return
 }
 
+// 根据商品ids查询优惠信息
 func getProductPromotionByIds(productIdList []int64) (results []cart.PromotionProduct, err error) {
-	if err = global.Db.Table("pms_product p").
-		Select(`
-			p.id,
-			p.name,
-			p.promotion_type,
-			p.gift_growth,
-			p.gift_point,
-			sku.id AS sku_id,
-			sku.price AS sku_price,
-			sku.sku_code AS sku_sku_code,
-			sku.promotion_price AS sku_promotion_price,
-			sku.stock AS sku_stock,
-			sku.lock_stock AS sku_lock_stock,
-			ladder.id AS ladder_id,
-			ladder.count AS ladder_count,
-			ladder.discount AS ladder_discount,
-			full_re.id AS full_id,
-			full_re.full_price AS full_full_price,
-			full_re.reduce_price AS full_reduce_price`).
-		Joins("LEFT JOIN pms_sku_stock sku ON p.id = sku.product_id").
-		Joins("LEFT JOIN pms_product_ladder ladder ON p.id = ladder.product_id").
-		Joins("LEFT JOIN pms_product_full_reduction full_re ON p.id = full_re.product_id").
-		Where("p.id IN ?", productIdList).Find(&results).Error; err != nil {
-		return nil, errors.New("根据商品ids查询优惠信息出错:" + err.Error())
+	// todo:这个方法报错：[error] invalid field found for struct gomall/models/cart.PromotionProduct's field SkuStockList:
+	//  define a valid foreign key for relations or implement the Valuer/Scanner interface。
+	//if err = global.Db.Table("pms_product p").
+	//	Select(`
+	//		p.id,
+	//		p.name,
+	//		p.promotion_type,
+	//		p.gift_growth,
+	//		p.gift_point,
+	//		sku.id AS sku_id,
+	//		sku.price AS sku_price,
+	//		sku.sku_code AS sku_sku_code,
+	//		sku.promotion_price AS sku_promotion_price,
+	//		sku.stock AS sku_stock,
+	//		sku.lock_stock AS sku_lock_stock,
+	//		ladder.id AS ladder_id,
+	//		ladder.count AS ladder_count,
+	//		ladder.discount AS ladder_discount,
+	//		full_re.id AS full_id,
+	//		full_re.full_price AS full_full_price,
+	//		full_re.reduce_price AS full_reduce_price`).
+	//	Joins("LEFT JOIN pms_sku_stock sku ON p.id = sku.product_id").
+	//	Joins("LEFT JOIN pms_product_ladder ladder ON p.id = ladder.product_id").
+	//	Joins("LEFT JOIN pms_product_full_reduction full_re ON p.id = full_re.product_id").
+	//	Where("p.id IN ?", productIdList).Debug().Find(&results).Error; err != nil {
+	//	return nil, errors.New("根据商品ids查询优惠信息出错:" + err.Error())
+	//}
+	//
+	//return
+
+	// 手动组装
+	var products []home.PmsProduct
+	var skuStocks []cart.PmsSkuStock
+	var productLadders []cart.PmsProductLadder
+	var productFullReductions []cart.PmsProductFullReduction
+
+	// 查询基础产品信息
+	if err := global.Db.Table("pms_product").
+		Where("id IN ?", productIdList).
+		Find(&products).Error; err != nil {
+		return nil, fmt.Errorf("查询商品基本信息出错: %v", err)
 	}
-	return
+
+	// 查询 SKU 库存信息
+	if err := global.Db.Table("pms_sku_stock").
+		Where("product_id IN ?", productIdList).
+		Find(&skuStocks).Error; err != nil {
+		return nil, fmt.Errorf("查询 SKU 库存信息出错: %v", err)
+	}
+
+	// 查询商品打折信息
+	if err := global.Db.Table("pms_product_ladder").
+		Where("product_id IN ?", productIdList).
+		Find(&productLadders).Error; err != nil {
+		return nil, fmt.Errorf("查询商品打折信息出错: %v", err)
+	}
+
+	// 查询商品满减信息
+	if err := global.Db.Table("pms_product_full_reduction").
+		Where("product_id IN ?", productIdList).
+		Find(&productFullReductions).Error; err != nil {
+		return nil, fmt.Errorf("查询商品满减信息出错: %v", err)
+	}
+
+	// 将查询结果组合成 PromotionProduct
+	productMap := make(map[int64]*cart.PromotionProduct)
+	for _, product := range products {
+		productMap[product.Id] = &cart.PromotionProduct{
+			Product: product,
+		}
+	}
+
+	// 组装 SKU 库存信息
+	for _, sku := range skuStocks {
+		if product, exists := productMap[sku.ProductId]; exists {
+			product.SkuStockList = append(product.SkuStockList, sku)
+		}
+	}
+
+	// 组装打折信息
+	for _, ladder := range productLadders {
+		if product, exists := productMap[ladder.ProductId]; exists {
+			product.ProductLadderList = append(product.ProductLadderList, ladder)
+		}
+	}
+
+	// 组装满减信息
+	for _, reduction := range productFullReductions {
+		if product, exists := productMap[reduction.ProductId]; exists {
+			product.ProductFullReduction = append(product.ProductFullReduction, reduction)
+		}
+	}
+
+	// 转换 map 为 slice
+	results = make([]cart.PromotionProduct, 0, len(productMap))
+	for _, product := range productMap {
+		results = append(results, *product)
+	}
+
+	return results, nil
+
 }
 
 // 根据商品id获取商品的促销信息
@@ -353,7 +450,7 @@ func getLadderPromotionMessage(ladder cart.PmsProductLadder) string {
 }
 
 // 对没满足优惠条件的商品进行处理
-func handleNoReduce(cartPromotionItemList []cart.CartPromotionItem, itemList []cart.OmsCartItem, promotionProduct cart.PromotionProduct) {
+func handleNoReduce(cartPromotionItemList []*cart.CartPromotionItem, itemList []cart.OmsCartItem, promotionProduct cart.PromotionProduct) []*cart.CartPromotionItem {
 	for _, item := range itemList {
 		cartPromotionItem := copyFromOmsCartItem(item)
 		cartPromotionItem.PromotionMessage = "无优惠"
@@ -364,8 +461,10 @@ func handleNoReduce(cartPromotionItemList []cart.CartPromotionItem, itemList []c
 		}
 		cartPromotionItem.Integration = promotionProduct.Product.GiftPoint
 		cartPromotionItem.Growth = promotionProduct.Product.GiftGrowth
-		cartPromotionItemList = append(cartPromotionItemList, cartPromotionItem)
+		cartPromotionItemList = append(cartPromotionItemList, &cartPromotionItem)
 	}
+	global.Logger.Infof("cartPromotionItemList的长度为:%d", len(cartPromotionItemList))
+	return cartPromotionItemList
 }
 
 // todo:没转化过来，除了手动赋值的两个字段，插入的数据都是空的
