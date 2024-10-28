@@ -42,3 +42,22 @@ type PaySuccessReqStruct struct {
 type CancelUserOrderReqStruct struct {
 	OrderId int64 `json:"orderId" binding:"required"`
 }
+
+type CreateReturnApplyReqStruct struct {
+	OrderId          int64   `json:"orderId"`
+	ProductId        int64   `json:"productId"`
+	OrderSn          string  `json:"orderSn"`
+	MemberUsername   string  `json:"memberUsername"`
+	ReturnName       string  `json:"returnName"`
+	ReturnPhone      string  `json:"returnPhone"`
+	ProductPic       string  `json:"productPic"`
+	ProductName      string  `json:"productName"`
+	ProductBrand     string  `json:"productBrand"`
+	ProductAttr      string  `json:"productAttr"`
+	ProductCount     int     `json:"productCount"`
+	ProductPrice     float64 `json:"productPrice"`
+	ProductRealPrice float64 `json:"productRealPrice"`
+	Reason           string  `json:"reason"`
+	Description      string  `json:"description"`
+	ProofPics        string  `json:"proofPics"`
+}

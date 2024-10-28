@@ -1018,3 +1018,28 @@ func releaseSkuStockLock(orderItemList []orderModel.OmsOrderItem) (err error) {
 	}
 	return nil
 }
+
+func CreateReturnApply(data *receive.CreateReturnApplyReqStruct) error {
+	realApply := &orderModel.OmsOrderReturnApply{
+		OrderId:          data.OrderId,
+		ProductId:        data.ProductId,
+		OrderSn:          data.OrderSn,
+		MemberUsername:   data.MemberUsername,
+		ReturnName:       data.ReturnName,
+		ReturnPhone:      data.ReturnPhone,
+		ProductPic:       data.ProductPic,
+		ProductName:      data.ProductName,
+		ProductBrand:     data.ProductBrand,
+		ProductAttr:      data.ProductAttr,
+		ProductCount:     data.ProductCount,
+		ProductPrice:     data.ProductPrice,
+		ProductRealPrice: data.ProductRealPrice,
+		Reason:           data.Reason,
+		Description:      data.Description,
+		ProofPics:        data.ProofPics,
+	}
+	now := time.Now()
+	realApply.CreateTime = &now
+	realApply.Status = 0
+	return global.Db.Create(&realApply).Error
+}

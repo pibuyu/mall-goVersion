@@ -164,3 +164,12 @@ func (c *OrderController) CancelTimeOutOrder(ctx *gin.Context) {
 	}
 	c.Response(ctx, "取消超时订单成功", count, nil)
 }
+
+func (c *OrderController) CreateReturnApply(ctx *gin.Context) {
+	if rec, err := controller.ShouldBind(ctx, new(receive.CreateReturnApplyReqStruct)); err == nil {
+		if err := order.CreateReturnApply(rec); err != nil {
+			c.Response(ctx, "创建退货订单failed", 0, err)
+		}
+		c.Response(ctx, "创建退货订单成功", 1, nil)
+	}
+}

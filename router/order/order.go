@@ -22,4 +22,8 @@ func (c *OrderRouter) InitOrderRouter(Router *gin.RouterGroup) {
 		orderRouter.POST("/cancelUserOrder", orderController.CancelUserOrder)           //用户取消订单
 		orderRouter.POST("/cancelTimeOutOrder", orderController.CancelTimeOutOrder)     //自动取消超时订单
 	}
+
+	//单独的一条退货申请的路由
+	orderController := new(order.OrderController)
+	Router.POST("/returnApply/create", orderController.CreateReturnApply)
 }
