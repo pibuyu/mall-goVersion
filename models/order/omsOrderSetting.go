@@ -28,6 +28,13 @@ func (settingList *OmsOrderSettingList) GetAll() (err error) {
 	return nil
 }
 
+func (orderSetting *OmsOrderSetting) GetById(id int64) (err error) {
+	if err := global.Db.Where("id =?", id).First(&orderSetting).Error; err != nil {
+		return errors.New("查询orderSetting出错:" + err.Error())
+	}
+	return nil
+}
+
 func (OmsOrderSetting) TableName() string {
 	return "oms_order_setting"
 }

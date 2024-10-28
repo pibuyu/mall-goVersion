@@ -87,13 +87,13 @@ func (c *OrderController) GenerateConfirmOrder(ctx *gin.Context) {
 
 func (c *OrderController) GenerateOrder(ctx *gin.Context) {
 	if rec, err := controller.ShouldBind(ctx, new(receive.GenerateOrderReqStruct)); err == nil {
-		order, err := order.GenerateOrder(rec, ctx)
+		oneOrder, err := order.GenerateOrder(rec, ctx)
 		if err != nil {
 			global.Logger.Error("根据购物车信息生成订单出错:%v", err)
 			c.Response(ctx, "根据购物车信息生成订单失败", nil, err)
 			return
 		}
-		c.Response(ctx, "根据购物车信息生成订单成功", order, nil)
+		c.Response(ctx, "根据购物车信息生成订单成功", oneOrder, nil)
 	}
 }
 
@@ -130,4 +130,21 @@ func (c *OrderController) PaySuccess(ctx *gin.Context) {
 		return
 	}
 	c.Response(ctx, "支付成功", count, nil)
+}
+
+func (c *OrderController) CancelUserOrder(ctx *gin.Context) {
+
+}
+
+// todo:这个方法应该由定时扫描的定时器来做.如果是手动调用，相当于手动清理那些超时订单
+func (c *OrderController) CancelTimeOutOrder(ctx *gin.Context) {
+	//不需要参数，直接扫描超时订单
+	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
+	count, err := order.CancelTimeOutOrder(memberId)
+	if err != nil {
+		global.Logger.Error("取消超时订单出错:%v", err)
+		c.Response(ctx, "取消超时订单失败", nil, err)
+		return
+	}
+	c.Response(ctx, "取消超时订单成功", count, nil)
 }

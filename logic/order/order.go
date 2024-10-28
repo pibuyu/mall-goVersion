@@ -915,3 +915,106 @@ func reduceSkuStock(productSkuId int64, productQuantity int) (err error) {
 	}
 	return nil
 }
+
+func CancelTimeOutOrder(memberId int64) (count int, err error) {
+	orderSetting := &orderModel.OmsOrderSetting{}
+	if err := orderSetting.GetById(1); err != nil {
+		return 0, err
+	}
+	//查询超时、未支付的订单及订单详情
+	timeOutOrders, err := getTimeOutOrders(orderSetting.NormalOrderOvertime)
+	global.Logger.Infof("查到的超时订单数:%d", len(timeOutOrders))
+	for _, timeoutOrder := range timeOutOrders {
+		global.Logger.Infof("超时订单信息:%v", timeoutOrder)
+	}
+	if err != nil {
+		return 0, err
+	}
+	//修改订单状态为交易取消
+	var ids []int64
+	for _, timeOutOrder := range timeOutOrders {
+		ids = append(ids, timeOutOrder.Order.ID)
+	}
+	if err := updateOrderStatus(ids, 4); err != nil {
+		return 0, err
+	}
+	for _, item := range timeOutOrders {
+		//解除订单商品库存锁定
+		if err := releaseSkuStockLock(item.OrderItemList); err != nil {
+			return 0, errors.New("解除订单商品的库存锁定failed:" + err.Error())
+		}
+		//修改优惠券使用状态
+		if err := updateCouponStatus(item.Order.CouponID, memberId, 0); err != nil {
+			return 0, err
+		}
+		//返还使用积分
+		if item.Order.UseIntegration != 0 {
+			//找到这个用户，更新其积分
+			curUser := &users.User{}
+			if err := curUser.GetMemberById(memberId); err != nil {
+				return 0, errors.New("查询用户信息出错:" + err.Error())
+			}
+			curUser.Integration += item.Order.UseIntegration
+			if err := curUser.Update(); err != nil {
+				return 0, errors.New("返还用户积分出错:" + err.Error())
+			}
+		}
+	}
+	return len(timeOutOrders), nil
+}
+
+func getTimeOutOrders(normalOverTime int) (result []orderModel.OmsOrderDetail, err error) {
+	//查询已经超时的订单
+	orders := make([]orderModel.OmsOrder, 0)
+	orderItems := make([]orderModel.OmsOrderItem, 0)
+	if err = global.Db.Model(&orderModel.OmsOrder{}).
+		Where("status", 0).
+		Where("TIMESTAMPDIFF(MINUTE,create_time,?) > ?", time.Now().Local(), normalOverTime).
+		Find(&orders).Error; err != nil {
+		return nil, errors.New("查询超时订单时，查询OmsOrder表failed:" + err.Error())
+	}
+
+	//将已经超时的订单的ids整合起来
+	var ids []int64
+	for _, oneOrder := range orders {
+		ids = append(ids, oneOrder.ID)
+	}
+	//根据上述ids查询对应的OmsOrderItem项
+	if err = global.Db.Model(&orderModel.OmsOrderItem{}).Where("order_id in ?", ids).
+		Find(&orderItems).Error; err != nil {
+		return nil, errors.New("查询超时订单时，查询OmsOrderItem表failed:" + err.Error())
+	}
+	//整合为DTO类型并返回
+	result = make([]orderModel.OmsOrderDetail, 0, len(orders))
+	for _, oneOrder := range orders {
+		oneOrderDetail := orderModel.OmsOrderDetail{Order: oneOrder}
+		for _, oneOrderItem := range orderItems {
+			if oneOrderItem.OrderId == oneOrder.ID {
+				oneOrderDetail.OrderItemList = append(oneOrderDetail.OrderItemList, oneOrderItem)
+			}
+		}
+		result = append(result, oneOrderDetail)
+	}
+	return result, nil
+}
+
+// 更新订单状态
+func updateOrderStatus(ids []int64, newStatus int) (err error) {
+	if err = global.Db.Model(&orderModel.OmsOrder{}).Where("id in (?)", ids).
+		Update("status", newStatus).Error; err != nil {
+		return errors.New("更新订单状态failed:" + err.Error())
+	}
+	return nil
+}
+
+// 解除订单商品库存锁定
+func releaseSkuStockLock(orderItemList []orderModel.OmsOrderItem) (err error) {
+	for _, orderItem := range orderItemList {
+		if err = global.Db.Model(&cart.PmsSkuStock{}).Where("id", orderItem.ProductSkuId).
+			Update("lock_stock", gorm.Expr("lock_stock -?", orderItem.ProductQuantity)).
+			Where("id", orderItem.ProductSkuId).Error; err != nil {
+			return errors.New("解除订单商品库存锁定failed:" + err.Error())
+		}
+	}
+	return nil
+}
