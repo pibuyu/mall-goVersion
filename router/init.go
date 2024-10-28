@@ -31,6 +31,7 @@ func InitRouter() {
 		router.Static("/assets", "./assets")
 		//初始化各个路由器组
 		RoutersGroup.Users.LoginRouter.InitLoginRouter(PrivateGroup)
+		RoutersGroup.Users.AddressRouter.InitAddressRouter(PrivateGroup)
 		RoutersGroup.Home.HomeRouter.InitHomeRouter(PrivateGroup)
 		RoutersGroup.Cart.InitCartRouter(PrivateGroup)
 		RoutersGroup.ReadHistory.InitReadHistoryRouter(PrivateGroup)

@@ -8,7 +8,7 @@ import (
 type ReadHistoryRouter struct{}
 
 func (c *ReadHistoryRouter) InitReadHistoryRouter(Router *gin.RouterGroup) {
-	readHistoryRouter := Router.Group("member").Use()
+	readHistoryRouter := Router.Group("address").Use()
 	{
 		readHistoryController := new(readHistory.ReadHistoryController)
 		readHistoryRouter.POST("/readHistory/create", readHistoryController.Create)
