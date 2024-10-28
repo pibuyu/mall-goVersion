@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 	"gomall/consts"
 	"gomall/global"
 	receive "gomall/interaction/receive/order"
@@ -59,7 +58,7 @@ func CancelOrder(data *receive.CancelOrderReqStruct) (err error) {
 	if cancelOrder.ID != 0 {
 		//修改订单状态为取消
 		cancelOrder.Status = 4
-		if err = global.Db.Model(&order.OmsOrder{}).Updates(cancelOrder).Error; err != nil {
+		if err = global.Db.Model(&order.OmsOrder{}).Where("id", cancelOrder.ID).Updates(cancelOrder).Error; err != nil {
 			return errors.New("取消订单时，更新订单状态出错:" + err.Error())
 		}
 		orderItemList := make([]order.OmsOrderItem, 0)
@@ -72,14 +71,13 @@ func CancelOrder(data *receive.CancelOrderReqStruct) (err error) {
 			for _, item := range orderItemList {
 				if err := releaseStockBySkuID(item.ProductSkuId, item.ProductQuantity); err != nil {
 					//这里貌似不应该返回报错
-					logrus.Errorf("库存不足，无法释放")
 					global.Logger.Errorf("库存不足，无法释放")
 				}
 			}
 		}
 		//修改优惠券的使用状态（退还已用的优惠券）
 		if err := updateCouponStatus(cancelOrder.CouponID, cancelOrder.MemberID, 0); err != nil {
-			global.Logger.Errorf("修改优惠券状态失败")
+			global.Logger.Errorf("退还优惠券时,修改优惠券状态失败")
 		}
 		//返还使用积分
 		if cancelOrder.Integration != 0 {
@@ -963,8 +961,10 @@ func CancelTimeOutOrder(memberId int64) (count int, err error) {
 	return len(timeOutOrders), nil
 }
 
+// getTimeOutOrders 查询已经超时的订单
 func getTimeOutOrders(normalOverTime int) (result []orderModel.OmsOrderDetail, err error) {
-	//查询已经超时的订单
+	//todo:This is a special comment.
+	// 这个地方有个雷，计算时间差值是否大于normalOverTime来判断订单是否超时，需要注意数据库和代码中的时区保持一致，不然可能查不到已经超时的订单。
 	orders := make([]orderModel.OmsOrder, 0)
 	orderItems := make([]orderModel.OmsOrderItem, 0)
 	if err = global.Db.Model(&orderModel.OmsOrder{}).

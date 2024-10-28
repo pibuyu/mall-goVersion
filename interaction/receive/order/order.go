@@ -38,3 +38,7 @@ type PaySuccessReqStruct struct {
 	OrderId int64 `json:"orderId" binding:"required"`
 	PayType int   `json:"payType" binding:"required"`
 }
+
+type CancelUserOrderReqStruct struct {
+	OrderId int64 `json:"orderId" binding:"required"`
+}

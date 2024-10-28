@@ -132,8 +132,24 @@ func (c *OrderController) PaySuccess(ctx *gin.Context) {
 	c.Response(ctx, "支付成功", count, nil)
 }
 
+// CancelUserOrder 用户取消订单
 func (c *OrderController) CancelUserOrder(ctx *gin.Context) {
+	var rec receive.CancelUserOrderReqStruct
+	if err := ctx.ShouldBindJSON(&rec); err != nil {
+		global.Logger.Errorf("CancelUserOrder请求传入参绑定失败: %v", err)
+		c.Response(ctx, "请求参数错误", nil, err)
+		return
+	}
 
+	newRec := &receive.CancelOrderReqStruct{
+		OrderId: rec.OrderId,
+	}
+	if err := order.CancelOrder(newRec); err != nil {
+		global.Logger.Error("用户主动取消订单出错:%v", err)
+		c.Response(ctx, "用户主动取消订单失败", nil, err)
+		return
+	}
+	c.Response(ctx, "用户主动取消订单成功", nil, nil)
 }
 
 // todo:这个方法应该由定时扫描的定时器来做.如果是手动调用，相当于手动清理那些超时订单
