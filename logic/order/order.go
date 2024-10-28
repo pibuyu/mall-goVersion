@@ -391,7 +391,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 		}
 		orderItemList = append(orderItemList, *orderItem)
 	}
-	global.Logger.Infof("打印orderItemList为:%v", orderItemList)
+	//global.Logger.Infof("打印orderItemList为:%v", orderItemList)
 
 	//判断购物车中商品是否都有库存
 	if !hasStock(cartPromotionItemList) {
@@ -442,7 +442,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	if err := handleRealAmount(pointerOrderItemList); err != nil {
 		return nil, errors.New("计算订单的实际支付金额出错:" + err.Error())
 	}
-	global.Logger.Infof("打印handleRealAmount处理后的orderItemList为:%v", orderItemList)
+	//global.Logger.Infof("打印handleRealAmount处理后的orderItemList为:%v", orderItemList)
 	//进行库存锁定
 	//todo:This is a special comment.
 	// 这个地方有点坑爹：make([]*cart.CartPromotionItem, 0)初始化内存时，指定长度应该为0。如果指定长度为len(cartPromotionItemList)：
@@ -455,7 +455,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	if err := lockStock(pointerCartPromotionItemList); err != nil {
 		return nil, err
 	}
-	global.Logger.Infof("打印后lockStock的cartPromotionItemList：%v", cartPromotionItemList)
+	//global.Logger.Infof("打印后lockStock的cartPromotionItemList：%v", cartPromotionItemList)
 	//根据商品合计、运费、活动优惠、优惠券、积分计算应付金额
 	order := &order.OmsOrder{
 		DiscountAmount:  float32(0),
@@ -520,11 +520,14 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	}
 	//插入订单表
 	//todo:this is a special comment.
-	// 凡是涉及到日期的，怎么全都是零值，前台查询order表的时候不允许数据库的时间字段出现零值.解决办法：把time.Time类型的字段全都改成*time.Time类型，这样未赋值的字段就是nil类型了
+	// 凡是涉及到日期的，怎么全都是零值，前台查询order表的时候不允许数据库的时间字段出现零值.
+	// 解决办法：把time.Time类型的字段全都改成*time.Time类型，这样未赋值的字段就是nil类型了
 	if err := order.Insert(); err != nil {
 		return nil, errors.New("创建订单时，插入订单表failed:" + err.Error())
 	}
-	//todo:是这一步出了点问题,为什么修改orderItem.OrderId和orderItem.OrderSn没有生效？？
+	//todo:This is a special comment.
+	// 这里是容易错的地方：如果用for _,item :=range(orderItemList)的方式遍历orderItemList，循环变量 orderItem 会得到元素的一个副本。
+	// 解决办法：1.转换为指针切片然后修改；2.通过索引进行访问.这里选择更简单的索引访问
 	for index := range orderItemList {
 		orderItemList[index].OrderId = order.ID
 		orderItemList[index].OrderSn = order.OrderSn
@@ -532,7 +535,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	if err := insertOrderItemList(orderItemList); err != nil {
 		return nil, err
 	}
-	global.Logger.Infof("insertOrderItemList后的orderItemList为:%v", orderItemList)
+	//global.Logger.Infof("insertOrderItemList后的orderItemList为:%v", orderItemList)
 	//如使用优惠券更新优惠券使用状态
 	if data.CouponId != 0 {
 		if err := updateCouponStatus(data.CouponId, currentMember.ID, 1); err != nil {
@@ -840,4 +843,75 @@ func getCouponOrderItemByRelation(couponHistoryDetail coupon.SmsCouponHistoryDet
 		}
 	}
 	return result, nil
+}
+
+// List 按状态分页获取用户订单列表
+func List(data *receive.ListReqStruct, memberId int64) (result []orderModel.OmsOrder, err error) {
+	if err = global.Db.Model(&orderModel.OmsOrder{}).Where("status = ?", data.Status).Where("member_id", memberId).
+		Offset((data.PageNum - 1) * data.PageSize).Limit(data.PageSize).Find(&result).Error; err != nil {
+		return nil, errors.New("分页查询订单列表failed:" + err.Error())
+	}
+	return
+}
+
+func PaySuccess(data *receive.PaySuccessReqStruct) (count int, err error) {
+	//修改订单的支付状态
+	oneOrder := &orderModel.OmsOrder{}
+	if err = global.Db.Model(&orderModel.OmsOrder{}).Where("id", data.OrderId).
+		Where("delete_status", 0).Where("status", 0).First(oneOrder).Error; err != nil {
+		return 0, errors.New("按照orderId和状态查询订单failed:" + err.Error())
+	}
+	oneOrder.PayType = data.PayType
+	oneOrder.Status = 1
+	now := time.Now()
+	oneOrder.PaymentTime = &now
+	if err = global.Db.Model(&orderModel.OmsOrder{}).Where("id", oneOrder.ID).Updates(oneOrder).Error; err != nil {
+		return 0, errors.New("修改订单的支付状态和支付时间failed:" + err.Error())
+	}
+	//恢复商品的锁定库存，扣减真实库存
+	orderDetail, err := getDetail(data.OrderId)
+	if err != nil {
+		return 0, err
+	}
+	if orderDetail.Order.ID == 0 {
+		return 0, errors.New("订单详情为空")
+	}
+	totalCount := 0
+	for _, item := range orderDetail.OrderItemList {
+		err := reduceSkuStock(item.ProductSkuId, item.ProductQuantity)
+		if err != nil {
+			return 0, errors.New("库存不足，无法扣减")
+		}
+		totalCount++
+	}
+	return totalCount, nil
+}
+
+func getDetail(orderId int64) (result orderModel.OmsOrderDetail, err error) {
+	//todo：手动拼接吧,又是外键错误
+	oneOrder := &orderModel.OmsOrder{}
+	orderItem := &orderModel.OmsOrderItem{}
+	if err = global.Db.Model(&orderModel.OmsOrder{}).Where("id", orderId).First(&oneOrder).Error; err != nil {
+		return orderModel.OmsOrderDetail{}, errors.New("getDetail时，查询OmsOrder表failed:" + err.Error())
+	}
+	if err = global.Db.Model(&orderModel.OmsOrderItem{}).Where("order_id", orderId).First(&orderItem).Error; err != nil {
+		return orderModel.OmsOrderDetail{}, errors.New("getDetail时，查询OmsOrderItem表failed:" + err.Error())
+	}
+	result.Order = *oneOrder
+	result.OrderItemList = append(result.OrderItemList, *orderItem)
+
+	return
+}
+
+func reduceSkuStock(productSkuId int64, productQuantity int) (err error) {
+	if err = global.Db.Model(&cart.PmsSkuStock{}).
+		Where("id", productSkuId).
+		Where("stock - ? >=0", productQuantity).
+		Where("lock_stock - ? >=0", productQuantity).
+		Update("lock_stock", gorm.Expr("lock_stock -?", productQuantity)).
+		Update("stock", gorm.Expr("stock - ?", productQuantity)).
+		Error; err != nil {
+		return errors.New("更新锁定库存和真实库存failed:" + err.Error())
+	}
+	return nil
 }

@@ -27,3 +27,14 @@ type GenerateOrderReqStruct struct {
 	PayType                int     `json:"payType"`
 	UseIntegration         int     `json:"useIntegration"`
 }
+
+type ListReqStruct struct {
+	PageNum  int `json:"pageNum"`
+	PageSize int `json:"pageSize"`
+	Status   int `json:"status" binding:"required"`
+}
+
+type PaySuccessReqStruct struct {
+	OrderId int64 `json:"orderId" binding:"required"`
+	PayType int   `json:"payType" binding:"required"`
+}

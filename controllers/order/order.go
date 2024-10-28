@@ -6,6 +6,7 @@ import (
 	"gomall/global"
 	receive "gomall/interaction/receive/order"
 	"gomall/logic/order"
+	"gomall/utils/jwt"
 )
 
 type OrderController struct {
@@ -94,4 +95,39 @@ func (c *OrderController) GenerateOrder(ctx *gin.Context) {
 		}
 		c.Response(ctx, "根据购物车信息生成订单成功", order, nil)
 	}
+}
+
+// List 按订单状态分页获取订单列表
+func (c *OrderController) List(ctx *gin.Context) {
+	var rec receive.ListReqStruct
+	if err := ctx.ShouldBindJSON(&rec); err != nil {
+		global.Logger.Errorf("List请求传入参绑定失败: %v", err)
+		c.Response(ctx, "请求参数错误", nil, err)
+		return
+	}
+
+	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
+
+	result, err := order.List(&rec, memberId)
+	if err != nil {
+		c.Response(ctx, "按订单状态分页获取订单列表失败", nil, err)
+	}
+	c.Response(ctx, "按订单状态分页获取订单列表成功", result, nil)
+}
+
+// PaySuccess 用户支付成功的回调
+func (c *OrderController) PaySuccess(ctx *gin.Context) {
+	var rec receive.PaySuccessReqStruct
+	if err := ctx.ShouldBindJSON(&rec); err != nil {
+		global.Logger.Errorf("PaySuccess请求传入参绑定失败: %v", err)
+		c.Response(ctx, "请求参数错误", nil, err)
+		return
+	}
+
+	count, err := order.PaySuccess(&rec)
+	if err != nil {
+		c.Response(ctx, "支付失败", nil, err)
+		return
+	}
+	c.Response(ctx, "支付成功", count, nil)
 }

@@ -18,5 +18,7 @@ func (c *OrderRouter) InitOrderRouter(Router *gin.RouterGroup) {
 		orderRouter.POST("/deleteOrder", orderController.DeleteOrder)                   //删除订单
 		orderRouter.POST("/generateConfirmOrder", orderController.GenerateConfirmOrder) //根据购物车信息生成确认单
 		orderRouter.POST("/generateOrder", orderController.GenerateOrder)               //根据购物车信息生成确认单
+		orderRouter.GET("/list", orderController.List)                                  //根据id获取订单详情
+		orderRouter.POST("/paySuccess", orderController.PaySuccess)
 	}
 }
