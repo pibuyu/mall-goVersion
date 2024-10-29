@@ -4,7 +4,9 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/segmentio/kafka-go"
 	"github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/mongo"
 	"gomall/global/config"
+	MongoDbFun "gomall/global/database/mongodb"
 	"gomall/global/database/mysql"
 	RedisDbFun "gomall/global/database/redis"
 	log "gomall/global/logrus"
@@ -16,16 +18,14 @@ import (
 func init() {
 	Logger = log.ReturnsInstance()
 	RedisDb = RedisDbFun.ReturnsInstance()
+	MongoDb = MongoDbFun.ReturnsInstance()
 	Db = mysql.ReturnsInstance()
 	Config = config.ReturnsInstance()
 	//普通队列的生产者
 	NormalProducer = msgQueue.ReturnsNormalInstance()
 	//延迟队列的生产者
 	DelayProducer = msgQueue.ReturnsDelayInstance()
-	//启动延时队列的消费者和普通队列的消费者
-	//todo:尝试换个地方启动消费者,避免循环依赖问题
-	//msgQueue.StartDelayConsumer()
-	//msgQueue.StartNormalConsumer()
+
 }
 
 var (
@@ -33,6 +33,7 @@ var (
 	Config         *config.Info
 	Db             *gorm.DB
 	RedisDb        *redis.Client
+	MongoDb        *mongo.Client
 	NormalProducer *kafka.Conn
 	DelayProducer  *kafka.Conn
 )

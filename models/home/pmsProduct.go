@@ -3,6 +3,7 @@ package home
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"gomall/global"
 	"time"
 )
 
@@ -51,6 +52,10 @@ type PmsProduct struct {
 	ProductCategoryName        string    `json:"product_category_name" gorm:"product_category_name"`
 }
 type PmsProductList []PmsProduct
+
+func (p *PmsProduct) GetById(id int64) (err error) {
+	return global.Db.Model(&PmsProduct{}).Where("id", id).First(&p).Error
+}
 
 // 为PmsProduct结构体实现Valuer接口，用于将结构体转换为数据库可存储的值
 func (p *PmsProduct) Value() (driver.Value, error) {

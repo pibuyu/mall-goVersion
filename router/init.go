@@ -11,7 +11,8 @@ import (
 )
 
 type RouterGroup struct {
-	Users       usersRouter.RouterGroup
+	Users usersRouter.RouterGroup
+
 	Home        homeRouter.RouterGroup
 	Cart        cartRouter.RouterGroup
 	ReadHistory readHistoryRouter.RouterGroup
@@ -32,6 +33,7 @@ func InitRouter() {
 		//初始化各个路由器组
 		RoutersGroup.Users.LoginRouter.InitLoginRouter(PrivateGroup)
 		RoutersGroup.Users.AddressRouter.InitAddressRouter(PrivateGroup)
+		RoutersGroup.Users.ProductCollectionRouter.InitProductCollectionRouter(PrivateGroup)
 		RoutersGroup.Home.HomeRouter.InitHomeRouter(PrivateGroup)
 		RoutersGroup.Cart.InitCartRouter(PrivateGroup)
 		RoutersGroup.ReadHistory.InitReadHistoryRouter(PrivateGroup)

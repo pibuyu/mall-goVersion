@@ -16,6 +16,7 @@ type Info struct {
 	LiveConfig    *LiveConfigStruct
 	AliyunOss     *AliyunOss
 	ProjectUrl    string
+	MongoDBConfig *MongoDBConfigStruct
 }
 
 func init() {
@@ -95,6 +96,18 @@ type AliyunOss struct {
 	OssEndPoint              string `ini:"OssEndPoint"`
 }
 
+// user = root
+// password = rlKLlCteUg95WkJd
+// host = 101.126.144.39
+// url = mongodb://root:rlKLlCteUg95WkJd@101.126.144.39:27017
+type MongoDBConfigStruct struct {
+	Host     string `ini:"host"`
+	User     string `ini:"user"`
+	Password string `ini:"password"`
+	Port     int    `ini:"port"`
+	Database string `ini:"database"`
+}
+
 func getConfigPath() string {
 	//判断一下是在启动项目还是运行测试类，返回不同的配置文件的路径
 	curDir, err := os.Getwd()
@@ -110,13 +123,8 @@ func getConfigPath() string {
 
 func ReturnsInstance() *Info {
 	Config.SqlConfig = &SqlConfigStruct{}
-	//正常go run main.go需要用这个配置文件路径
-	//path := filepath.ToSlash("./config/config.ini")
 
-	//跑测试类需要用下面这个配置文件路径
-	//path := filepath.ToSlash("../config/config.ini")
-
-	//todo:尝试统一配置文件的路径
+	//统一配置文件的路径
 	path := getConfigPath()
 
 	cfg, err = ini.Load(path)
@@ -128,40 +136,46 @@ func ReturnsInstance() *Info {
 	if err != nil {
 		log.Fatalf("Mysql读取配置文件错误: %v \n", err)
 	}
-
-	//msgQueue config;Config.KafkaConfig = &KafkaConfigStruct{}给config字段赋值要在mapto映射之前，不然会报空值错误（没有这个字段，更没法映射值到上面去）
 	//todo:新增加的配置信息要在这里映射到config.Config属性中去才生效啊
+	//msgQueue config
 	Config.KafkaConfig = &KafkaConfigStruct{}
 	err = cfg.Section("kafka").MapTo(Config.KafkaConfig)
 	if err != nil {
 		log.Fatalf("kafka读取配置文件错误: %v \n", err)
 	}
-	//log.Println("kafka读取到的配置topic为", Config.KafkaConfig.Server)
-
-	//log.Println("读取到的kafka配置信息的topic为", Config)
-	//redis configZ
+	//mongodb config
+	Config.MongoDBConfig = &MongoDBConfigStruct{}
+	err = cfg.Section("mongodb").MapTo(Config.MongoDBConfig)
+	if err != nil {
+		log.Fatalf("mongodb读取配置文件错误: %v \n", err)
+	}
+	//redis config
 	Config.RConfig = &RConfigStruct{}
 	err = cfg.Section("redis").MapTo(Config.RConfig)
 	if err != nil {
 		log.Fatalf("Redis读取配置文件错误: %v \n", err)
 	}
+	//email config
 	Config.EmailConfig = &EmailConfigStruct{}
 	err = cfg.Section("email").MapTo(Config.EmailConfig)
 	if err != nil {
 		log.Fatalf("Email读取配置文件错误: %v \n", err)
 	}
+	//project config
 	Config.ProjectConfig = &ProjectConfigStruct{}
 	err = cfg.Section("project").MapTo(Config.ProjectConfig)
 	if err != nil {
 		log.Fatalf("Project读取配置文件错误: %v \n", err)
 	}
 
+	//live config
 	Config.LiveConfig = &LiveConfigStruct{}
 	err = cfg.Section("live").MapTo(Config.LiveConfig)
 	if err != nil {
 		log.Fatalf("Live读取配置文件错误: %v \n", err)
 	}
 
+	//aliyun config
 	Config.AliyunOss = &AliyunOss{}
 	err = cfg.Section("aliyunOss").MapTo(Config.AliyunOss)
 	if err != nil {
