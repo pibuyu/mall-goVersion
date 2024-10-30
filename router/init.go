@@ -33,6 +33,7 @@ func InitRouter() {
 		//初始化各个路由器组
 		RoutersGroup.Users.LoginRouter.InitLoginRouter(PrivateGroup)
 		RoutersGroup.Users.AddressRouter.InitAddressRouter(PrivateGroup)
+		RoutersGroup.Users.CouponRouter.InitCouponRouter(PrivateGroup)
 		RoutersGroup.Users.ProductCollectionRouter.InitProductCollectionRouter(PrivateGroup)
 		RoutersGroup.Home.HomeRouter.InitHomeRouter(PrivateGroup)
 		RoutersGroup.Cart.InitCartRouter(PrivateGroup)

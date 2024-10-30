@@ -1,5 +1,7 @@
 package coupon
 
+import "gomall/global"
+
 // 优惠券关联的商品所属的分类
 type SmsCouponProductCategoryRelation struct {
 	// ID 记录ID
@@ -12,6 +14,13 @@ type SmsCouponProductCategoryRelation struct {
 	ProductCategoryName string `json:"productCategoryName" gorm:"column:product_category_name"`
 	// ParentCategoryName 父分类名称
 	ParentCategoryName string `json:"parentCategoryName" gorm:"column:parent_category_name"`
+}
+
+type SmsCouponProductCategoryRelationList []SmsCouponProductCategoryRelation
+
+func (list *SmsCouponProductCategoryRelationList) GetByProductCategoryId(productCategoryId int64) error {
+	return global.Db.Model(&SmsCouponProductCategoryRelation{}).
+		Where("product_category_id = ?", productCategoryId).Find(list).Error
 }
 
 func (SmsCouponProductCategoryRelation) TableName() string {

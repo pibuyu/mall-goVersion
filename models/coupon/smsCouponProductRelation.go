@@ -1,5 +1,7 @@
 package coupon
 
+import "gomall/global"
+
 // 优惠券关联的商品信息
 type SmsCouponProductRelation struct {
 	// ID 记录ID
@@ -12,6 +14,12 @@ type SmsCouponProductRelation struct {
 	ProductName string `json:"productName" gorm:"column:product_name"`
 	// ProductSn 商品编码
 	ProductSn string `json:"productSn" gorm:"column:product_sn"`
+}
+
+type SmsCouponProductRelationList []SmsCouponProductRelation
+
+func (list *SmsCouponProductRelationList) GetByProductId(productId int64) error {
+	return global.Db.Model(&SmsCouponProductRelation{}).Where("product_id = ?", productId).Find(list).Error
 }
 
 func (SmsCouponProductRelation) TableName() string {

@@ -4,4 +4,5 @@ type RouterGroup struct {
 	LoginRouter
 	AddressRouter
 	ProductCollectionRouter
+	CouponRouter
 }

@@ -122,9 +122,10 @@ func updateCouponStatus(couponID int64, memberId int64, useStatus int) (err erro
 		return errors.New("查询优惠券出错:" + err.Error())
 	}
 	//将其使用时间和使用状态修改一下
-	couponHistory.UseTime = time.Now()
+	now := time.Now()
+	couponHistory.UseTime = &now
 	couponHistory.UseStatus = useStatus
-	if err = global.Db.Model(&coupon.SmsCouponHistory{}).Updates(&couponHistory).Error; err != nil {
+	if err = global.Db.Model(&coupon.SmsCouponHistory{}).Where("id", couponHistory.ID).Updates(&couponHistory).Error; err != nil {
 		return errors.New("更新优惠券状态出错:" + err.Error())
 	}
 	return nil
@@ -198,7 +199,7 @@ func GenerateConfirmOrder(cartIds []int64, ctx *gin.Context) (result order.Confi
 	result.MemberReceiveAddressList = memberReceiveAddressList
 	//获取用户可用优惠券列表
 
-	couponHistoryDetailList, err := listCart(cartPromotionItemList, 1, memberId)
+	couponHistoryDetailList, err := ListCart(cartPromotionItemList, 1, memberId)
 	if err != nil {
 		return order.ConfirmOrderResult{}, errors.New("获取用户可用优惠券列表出错:" + err.Error())
 	}
@@ -215,7 +216,7 @@ func GenerateConfirmOrder(cartIds []int64, ctx *gin.Context) (result order.Confi
 }
 
 // 根据购物车信息获取可用优惠券
-func listCart(cartItemList cart.CartPromotionItemList, couponType int, memberId int64) (result []coupon.SmsCouponHistoryDetail, err error) {
+func ListCart(cartItemList cart.CartPromotionItemList, couponType int, memberId int64) (result []coupon.SmsCouponHistoryDetail, err error) {
 	user := &users.User{}
 	if err := user.GetMemberById(memberId); err != nil {
 		return nil, errors.New("listCart时，查询用户信息failed:" + err.Error())
@@ -280,17 +281,47 @@ func listCart(cartItemList cart.CartPromotionItemList, couponType int, memberId 
 
 // 获取优惠券历史详情
 func getDetailList(memberId int64) (result []coupon.SmsCouponHistoryDetail, err error) {
-	if err = global.Db.Table("sms_coupon_history ch").
-		Select("ch.*, c.id as c_id, c.name as c_name, c.amount as c_amount, c.min_point as c_min_point, c.platform as c_platform, c.start_time as c_start_time, c.end_time as c_end_time, c.note as c_note, c.use_type as c_use_type, c.type as c_type, cpr.id as cpr_id, cpr.product_id as cpr_product_id, cpcr.id as cpcr_id, cpcr.product_category_id as cpcr_product_category_id").
-		Joins("LEFT JOIN sms_coupon c ON ch.coupon_id = c.id").
-		Joins("LEFT JOIN sms_coupon_product_relation cpr ON cpr.coupon_id = c.id").
-		Joins("LEFT JOIN sms_coupon_product_category_relation cpcr ON cpcr.coupon_id = c.id").
-		Where("ch.member_id =?", memberId).
-		Where("ch.use_status = 0").
-		Scan(&result).Error; err != nil {
-		return nil, errors.New("获取优惠券历史详情查表出错:" + err.Error())
+	// 查询优惠券历史
+	var couponHistories []coupon.SmsCouponHistory
+	if err = global.Db.Table("sms_coupon_history").
+		Where("member_id = ? AND use_status = 0", memberId).Find(&couponHistories).Error; err != nil {
+		return nil, errors.New("获取优惠券历史记录出错: " + err.Error())
+	}
+	// 初始化结果切片
+	result = make([]coupon.SmsCouponHistoryDetail, 0, len(couponHistories))
+	for _, history := range couponHistories {
+		var detail coupon.SmsCouponHistoryDetail
+		detail.Coupon = coupon.SmsCoupon{}
+		//查询优惠券关联的商品信息
+		if err = global.Db.Table("sms_coupon").
+			Where("id=?", history.CouponID).First(&detail.Coupon).Error; err != nil {
+			return nil, errors.New("获取优惠券信息出错: " + err.Error())
+		}
+		//查询关联的商品
+		if err = global.Db.Table("sms_coupon_product_relation").
+			Where("coupon_id = ?", history.CouponID).Find(&detail.ProductRelationList).Error; err != nil {
+			return nil, errors.New("查询优惠券关联的商品信息出错:" + err.Error())
+		}
+		//查询优惠券关联的商品分类
+		if err = global.Db.Table("sms_coupon_product_category_relation").
+			Where("coupon_id = ?", history.CouponID).Find(&detail.CategoryRelationList).Error; err != nil {
+			return nil, errors.New("查询优惠券关联的商品分类出错:" + err.Error())
+		}
+		result = append(result, detail)
 	}
 	return
+
+	//if err = global.Db.Table("sms_coupon_history ch").
+	//	Select("ch.*, c.id as c_id, c.name as c_name, c.amount as c_amount, c.min_point as c_min_point, c.platform as c_platform, c.start_time as c_start_time, c.end_time as c_end_time, c.note as c_note, c.use_type as c_use_type, c.type as c_type, cpr.id as cpr_id, cpr.product_id as cpr_product_id, cpcr.id as cpcr_id, cpcr.product_category_id as cpcr_product_category_id").
+	//	Joins("LEFT JOIN sms_coupon c ON ch.coupon_id = c.id").
+	//	Joins("LEFT JOIN sms_coupon_product_relation cpr ON cpr.coupon_id = c.id").
+	//	Joins("LEFT JOIN sms_coupon_product_category_relation cpcr ON cpcr.coupon_id = c.id").
+	//	Where("ch.member_id =?", memberId).
+	//	Where("ch.use_status = 0").
+	//	Scan(&result).Error; err != nil {
+	//	return nil, errors.New("获取优惠券历史详情查表出错:" + err.Error())
+	//}
+	//return
 }
 
 func calcTotalAmount(cartItemList cart.CartPromotionItemList) (result float32) {
@@ -572,7 +603,7 @@ func hasStock(cartPromotionItemList cart.CartPromotionItemList) bool {
 
 // 获取该用户可以使用的优惠券
 func getUseCoupon(cartPromotionItemList cart.CartPromotionItemList, couponId int64, memberId int64) (result coupon.SmsCouponHistoryDetail, err error) {
-	couponHistoryDetailList, err := listCart(cartPromotionItemList, 1, memberId)
+	couponHistoryDetailList, err := ListCart(cartPromotionItemList, 1, memberId)
 	if err != nil {
 		return coupon.SmsCouponHistoryDetail{}, err
 	}
