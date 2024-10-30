@@ -13,5 +13,9 @@ func (r *ProductCollectionRouter) InitProductCollectionRouter(Router *gin.Router
 	{
 		productCollectionController := new(users.ProductCollectionController)
 		productCollectionRouter.POST("/add", productCollectionController.Add)
+		productCollectionRouter.POST("/clear", productCollectionController.Clear)
+		productCollectionRouter.POST("/delete", productCollectionController.Delete)
+		productCollectionRouter.GET("/detail", productCollectionController.Detail)
+		productCollectionRouter.GET("/list", productCollectionController.List)
 	}
 }
