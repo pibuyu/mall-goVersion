@@ -5,4 +5,5 @@ type RouterGroup struct {
 	AddressRouter
 	ProductCollectionRouter
 	CouponRouter
+	BrandAttentionRouter
 }

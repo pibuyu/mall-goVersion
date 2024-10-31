@@ -35,6 +35,7 @@ func InitRouter() {
 		RoutersGroup.Users.AddressRouter.InitAddressRouter(PrivateGroup)
 		RoutersGroup.Users.CouponRouter.InitCouponRouter(PrivateGroup)
 		RoutersGroup.Users.ProductCollectionRouter.InitProductCollectionRouter(PrivateGroup)
+		RoutersGroup.Users.BrandAttentionRouter.InitBrandAttentionRouter(PrivateGroup)
 		RoutersGroup.Home.HomeRouter.InitHomeRouter(PrivateGroup)
 		RoutersGroup.Cart.InitCartRouter(PrivateGroup)
 		RoutersGroup.ReadHistory.InitReadHistoryRouter(PrivateGroup)
