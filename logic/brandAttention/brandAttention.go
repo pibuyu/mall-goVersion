@@ -52,3 +52,54 @@ func Add(data *receive.AddBrandAttentionReqStruct) (count int, err error) {
 	}
 	return 1, nil
 }
+
+func Clear(memberId int64) (err error) {
+	db := global.MongoDb.Database("mall-port")
+	repo := NewMemberBrandAttentionRepository(db, "memberBrandAttention")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	//执行查询
+	if err = repo.ClearByMemberId(ctx, memberId); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Delete(brandId int64, memberId int64) error {
+	db := global.MongoDb.Database("mall-port")
+	repo := NewMemberBrandAttentionRepository(db, "memberBrandAttention")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	//执行查询
+	if err := repo.Delete(ctx, brandId, memberId); err != nil {
+		return errors.New("删除收藏的商品失败: " + err.Error())
+	}
+	return nil
+}
+
+func Detail(brandId int64, memberId int64) (result *brandAttentionModels.MemberBrandAttention, err error) {
+	db := global.MongoDb.Database("mall-port")
+	repo := NewMemberBrandAttentionRepository(db, "memberBrandAttention")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	//执行查询
+	result, err = repo.Detail(ctx, brandId, memberId)
+	if err != nil {
+		return nil, errors.New("获取收藏商品详情失败: " + err.Error())
+	}
+	return result, nil
+
+}
+
+func List(pageNum int, pageSize int, memberId int64) (result []brandAttentionModels.MemberBrandAttention, err error) {
+	db := global.MongoDb.Database("mall-port")
+	repo := NewMemberBrandAttentionRepository(db, "memberBrandAttention")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	//执行查询
+	result, err = repo.List(ctx, pageNum, pageSize, memberId)
+	if err != nil {
+		return nil, errors.New("获取收藏商品列表失败: " + err.Error())
+	}
+
+	return result, nil
+}

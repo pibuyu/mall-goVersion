@@ -13,3 +13,16 @@ type AddBrandAttentionReqStruct struct {
 	MemberId       int64     `json:"memberId"`
 	MemberNickname string    `json:"memberNickname"`
 }
+
+type DeleteBrandAttentionReqStruct struct {
+	BrandId int64 `json:"brandId"`
+}
+
+type DetailReqStruct struct {
+	BrandId int64 `json:"brandId"`
+}
+
+type ListReqStruct struct {
+	PageNum  int `json:"pageNum"`
+	PageSize int `json:"pageSize"`
+}
