@@ -6,17 +6,18 @@ import (
 	cartRouter "gomall/router/cart"
 	homeRouter "gomall/router/home"
 	orderRouter "gomall/router/order"
+	productRouter "gomall/router/product"
 	readHistoryRouter "gomall/router/readHistory"
 	usersRouter "gomall/router/users"
 )
 
 type RouterGroup struct {
-	Users usersRouter.RouterGroup
-
-	Home        homeRouter.RouterGroup
-	Cart        cartRouter.RouterGroup
-	ReadHistory readHistoryRouter.RouterGroup
-	OrderRouter orderRouter.RouterGroup
+	Users         usersRouter.RouterGroup
+	Home          homeRouter.RouterGroup
+	Cart          cartRouter.RouterGroup
+	ReadHistory   readHistoryRouter.RouterGroup
+	OrderRouter   orderRouter.RouterGroup
+	ProductRouter productRouter.RouterGroup
 }
 
 var RoutersGroup = new(RouterGroup)
@@ -41,6 +42,7 @@ func InitRouter() {
 		RoutersGroup.Cart.InitCartRouter(PrivateGroup)
 		RoutersGroup.ReadHistory.InitReadHistoryRouter(PrivateGroup)
 		RoutersGroup.OrderRouter.InitOrderRouter(PrivateGroup)
+		RoutersGroup.ProductRouter.InitProductRouter(PrivateGroup)
 	}
 
 	if err := router.Run(":9090"); err != nil {

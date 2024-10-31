@@ -20,6 +20,11 @@ type PmsSkuStock struct {
 	SpData         string  `json:"sp_data" gorm:"sp_data"`
 }
 
+type PmsSkuStockList []PmsSkuStock
+
+func (list *PmsSkuStockList) GetByProductId(productId int64) (err error) {
+	return global.Db.Model(&PmsSkuStock{}).Where("product_id = ?", productId).Find(list).Error
+}
 func (PmsSkuStock) TableName() string {
 	return "pms_sku_stock"
 }
