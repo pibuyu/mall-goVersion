@@ -146,6 +146,7 @@ func Search(data *receive.SearchReqStruct) (result []home.PmsProduct, err error)
 
 	//模糊匹配
 	if data.Keyword != "" {
+		//sql里的通配符% 表示匹配任意多个字符；前面再多加一个%是拼接时的转义字符，表示向keyword拼接一个真实的%
 		keyword := fmt.Sprintf("%%%s%%", data.Keyword) // equivalent to "%keyword%"
 		query = query.Where("name LIKE ?", keyword)
 	}
