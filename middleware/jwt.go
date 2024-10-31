@@ -55,7 +55,7 @@ func VerificationToken() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		c.Set("uid", u.ID)
+		c.Set("uid", u.Id)
 		c.Set("currentUserName", u.Username)
 		c.Next()
 	}
@@ -86,7 +86,7 @@ func VerificationTokenAsParameter() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		c.Set("uid", u.ID)
+		c.Set("uid", u.Id)
 		c.Set("currentUserName", u.Username)
 		c.Next()
 	}
@@ -112,7 +112,7 @@ func VerificationTokenNotNecessary() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
-			c.Set("uid", u.ID)
+			c.Set("uid", u.Id)
 			c.Set("currentUserName", u.Username)
 			c.Next()
 		}

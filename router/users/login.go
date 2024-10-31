@@ -14,6 +14,7 @@ func (s *LoginRouter) InitLoginRouter(Router *gin.RouterGroup) {
 	{
 		loginController := new(users.LoginController)
 		loginRouter.POST("/login", loginController.Login)
+		loginRouter.GET("/info", loginController.Info) //前端执行完login之后会立马执行一次info
 		loginRouter.POST("/register", loginController.Register)
 		loginRouter.POST("/getAuthCode", loginController.GenerateAuthCode)
 		loginRouter.POST("/updatePassword", loginController.UpdatePassword)

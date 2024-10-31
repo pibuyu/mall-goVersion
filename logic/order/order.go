@@ -508,7 +508,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	}
 	order.PayAmount = calcPayAmount(*order)
 	//转化为订单信息并插入数据库
-	order.MemberID = currentMember.ID
+	order.MemberID = currentMember.Id
 	now := time.Now()
 	order.CreateTime = &now
 	order.MemberUsername = currentMember.Username
@@ -567,7 +567,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	//global.Logger.Infof("insertOrderItemList后的orderItemList为:%v", orderItemList)
 	//如使用优惠券更新优惠券使用状态
 	if data.CouponId != 0 {
-		if err := updateCouponStatus(data.CouponId, currentMember.ID, 1); err != nil {
+		if err := updateCouponStatus(data.CouponId, currentMember.Id, 1); err != nil {
 			return nil, err
 		}
 	}
@@ -819,7 +819,7 @@ func deleteCartItemList(cartPromotionItemList []cart.CartPromotionItem, currentM
 		ids = append(ids, cartPromotionItem.CartItem.Id)
 	}
 	if err := global.Db.Model(&cart.OmsCartItem{}).
-		Where("id in ?", ids).Where("member_id = ?", currentMember.ID).
+		Where("id in ?", ids).Where("member_id = ?", currentMember.Id).
 		Update("delete_status", 1).Error; err != nil {
 		return errors.New("删除下单商品的购物车信息出错:" + err.Error())
 	}

@@ -3,12 +3,12 @@ package users
 import (
 	"errors"
 	"gomall/global"
-	"gomall/models/common"
 	"time"
 )
 
 type User struct {
-	common.PublicModel
+	Id                    int64     `json:"id" gorm:"id"`
+	CreateTime            time.Time `json:"createTime" gorm:"create_time"`
 	MemberLevelId         int64     `json:"member_level_id" gorm:"member_level_id"`
 	Username              string    `json:"username" gorm:"username"`
 	Password              string    `json:"password" gorm:"password"`
@@ -55,7 +55,7 @@ func (us *User) IsExistByField(field string, value any) bool {
 	if err != nil {
 		return false
 	}
-	if us.ID <= 0 {
+	if us.Id <= 0 {
 		return false
 	}
 	return true

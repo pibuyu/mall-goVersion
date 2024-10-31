@@ -6,6 +6,7 @@ import (
 	"gomall/global"
 	receive "gomall/interaction/receive/product"
 	productLogic "gomall/logic/product"
+	"strconv"
 )
 
 type ProductController struct {
@@ -15,11 +16,14 @@ type ProductController struct {
 // 获取前台商品详情
 func (c *ProductController) Detail(ctx *gin.Context) {
 	var rec receive.DetailReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
-		global.Logger.Errorf("Detail请求传入参绑定失败: %v", err)
-		c.Response(ctx, "请求参数错误", nil, err)
+	// 获取路径中的productId参数,这里的参数是以路径的形式传递过来的
+	productIdStr := ctx.Param("productId")
+	productId, err := strconv.ParseInt(productIdStr, 10, 64) // 转换为整数
+	if err != nil {
+		c.Response(ctx, "获取productId参数失败", nil, err)
 		return
 	}
+	rec.Id = productId
 	result, err := productLogic.Detail(rec.Id)
 	if err != nil {
 		c.Response(ctx, "获取商品详情失败", nil, err)
