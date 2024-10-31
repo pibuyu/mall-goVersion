@@ -110,7 +110,7 @@ func getAvailableCouponList(productId int64, productCategoryId int64) (result []
 	return
 }
 
-// 树形获取所有商品
+// CategoryTreeList 树形获取所有商品
 func CategoryTreeList() (result []productModels.PmsProductCategoryNode, err error) {
 	var allList []productModels.PmsProductCategory
 	if err := global.Db.Model(&productModels.PmsProductCategory{}).Find(&allList).Error; err != nil {

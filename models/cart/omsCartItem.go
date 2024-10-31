@@ -1,5 +1,7 @@
 package cart
 
+import "gomall/global"
+
 // OmsCartItem 购物车表
 type OmsCartItem struct {
 	Id                int64   `json:"id" gorm:"id"`
@@ -20,6 +22,11 @@ type OmsCartItem struct {
 	ProductBrand      string  `json:"product_brand" gorm:"product_brand"`
 	ProductSn         string  `json:"product_sn" gorm:"product_sn"`
 	ProductAttr       string  `json:"product_attr" gorm:"product_attr"`
+}
+
+func (item *OmsCartItem) GetById(id int64) error {
+	return global.Db.Model(&OmsCartItem{}).Where("id = ?", id).Find(item).Error
+
 }
 
 type OmsCartItemList []OmsCartItem

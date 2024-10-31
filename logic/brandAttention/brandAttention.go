@@ -40,7 +40,7 @@ func Add(data *receive.AddBrandAttentionReqStruct) (count int, err error) {
 			return 0, errors.New("添加关注的品牌的过程中，在pmsBrand表查询记录出错: " + err.Error())
 		}
 		if brand.ID == 0 {
-			return 0, errors.New("添加关注的品牌的过程中，在pmsBrand表中未查询到该品牌相关信息: " + err.Error())
+			return 0, errors.New("添加关注的品牌的过程中，在pmsBrand表中未查询到该品牌相关信息")
 		}
 
 		//保存

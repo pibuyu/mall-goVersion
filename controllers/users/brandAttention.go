@@ -55,11 +55,12 @@ func (c *BrandAttentionController) Delete(ctx *gin.Context) {
 		memberIdFromCtx, err := jwt.GetMemberIdFromCtx(ctx)
 		if err != nil {
 			c.Response(ctx, "删除用户关注品牌列表时，用户身份校验错误", 0, err)
+			return
 		}
 		if err = brandAttention.Delete(rec.BrandId, memberIdFromCtx); err != nil {
 			c.Response(ctx, "删除用户关注品牌失败", 0, err)
+			return
 		}
-
 		c.Response(ctx, "删除用户关注品牌成功", 1, nil)
 	}
 }

@@ -49,7 +49,6 @@ func (c *CartController) Clear(ctx *gin.Context) {
 
 func (c *CartController) DeleteByIds(ctx *gin.Context) {
 	if rec, err := controller.ShouldBind(ctx, new(receive.DeleteCartItemsByIdsRequestStruct)); err == nil {
-		global.Logger.Infof("删除购物车商品传递来的参数为:%v", rec.Ids)
 		memberIdFromCtx, err := jwt.GetMemberIdFromCtx(ctx)
 		if err != nil {
 			c.Response(ctx, "用户身份校验失败", 0, err)
@@ -97,19 +96,24 @@ func (c *CartController) List(ctx *gin.Context) {
 
 // CartListPromotion 获取当前会员的购物车列表，包括促销信息
 func (c *CartController) CartListPromotion(ctx *gin.Context) {
-	if rec, err := controller.ShouldBind(ctx, new(receive.CartListPromotionRequestStruct)); err == nil {
-		memberId, err := jwt.GetMemberIdFromCtx(ctx)
-		if err != nil {
-			c.Response(ctx, "用户身份校验失败", nil, err)
-			return
-		}
-		cartPromotionItemList, err := cart.CartListPromotion(rec.CartIds, memberId)
-		if err != nil {
-			c.Response(ctx, "获取当前会员的购物车列表失败", nil, err)
-			return
-		}
-		c.Response(ctx, "获取当前会员的购物车列表成功", cartPromotionItemList, nil)
+	//参数没有绑定上
+	var rec receive.CartListPromotionRequestStruct
+	if err := ctx.ShouldBindJSON(&rec); err != nil {
+		c.Response(ctx, "获取当前会员的购物车列表时，参数绑定失败", nil, err)
+		global.Logger.Errorf("获取当前会员的购物车列表时，参数绑定失败:%v", err)
+		return
 	}
+	memberId, err := jwt.GetMemberIdFromCtx(ctx)
+	if err != nil {
+		c.Response(ctx, "获取当前会员的购物车列表时，用户身份校验失败", nil, err)
+		return
+	}
+	cartPromotionItemList, err := cart.CartListPromotion(rec.CartIds, memberId)
+	if err != nil {
+		c.Response(ctx, "获取当前会员的购物车列表失败", nil, err)
+		return
+	}
+	c.Response(ctx, "获取当前会员的购物车列表成功", cartPromotionItemList, nil)
 }
 
 // UpdateAttr 修改购物车中商品的规格

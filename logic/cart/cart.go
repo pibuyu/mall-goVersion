@@ -1,16 +1,15 @@
 package cart
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"gomall/global"
 	receive "gomall/interaction/receive/cart"
 	response "gomall/interaction/response/cart"
 	"gomall/models/cart"
 	"gomall/models/home"
 	"gomall/utils/jwt"
+	"reflect"
 	"sort"
 	"time"
 )
@@ -35,12 +34,13 @@ func AddCartItem(data *receive.AddCartItemRequestStruct, claims *jwt.Claims) (er
 			return err
 		}
 		return nil
-	}
-	//存在将物品的修改日期和数量进行调整
-	cartItem.ModifyDate = time.Now().Format("2006-01-02 15:04:06")
-	cartItem.Quantity += existInCart.Quantity
-	if err := UpdateCartItem(cartItem); err != nil {
-		return err
+	} else {
+		//存在将物品的修改日期和数量进行调整
+		cartItem.ModifyDate = time.Now().Format("2006-01-02 15:04:06")
+		cartItem.Quantity += existInCart.Quantity
+		if err := UpdateCartItem(cartItem); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -54,10 +54,8 @@ func InsertCartItem(item cart.OmsCartItem) error {
 }
 
 func UpdateCartItem(item cart.OmsCartItem) (err error) {
-	if err := global.Db.Model(&cart.OmsCartItem{}).Where("id = ?", item.Id).Updates(map[string]interface{}{
-		"modify_date": item.ModifyDate,
-		"quantity":    item.Quantity,
-	}).Error; err != nil {
+	//不要用id作为where条件，传过来的item的id字段没有赋值，应该用member_id和product_id去查询表项
+	if err := global.Db.Debug().Model(&cart.OmsCartItem{}).Where("member_id = ? and product_id = ?", item.MemberId, item.ProductId).Updates(&item).Error; err != nil {
 		return errors.New("更新OmsCartItem表出错:" + err.Error())
 	}
 	return nil
@@ -149,11 +147,13 @@ func List(memberId int64) (results cart.OmsCartItemList, err error) {
 func CartListPromotion(cartIds []int64, memberId int64) (results cart.CartPromotionItemList, err error) {
 	//先找到当前会员的购物车列表
 	cartItemList, err := List(memberId)
-	//global.Logger.Infof("List方法获取到的cartItemList长度为%d", len(cartItemList))
 	if err != nil {
 		return nil, errors.New("查询会员的购物车信息出错:" + err.Error())
 	}
 
+	global.Logger.Infof("传递过来的cartIds为:%v", cartIds)
+
+	global.Logger.Infof("cartItemList为%v", cartItemList)
 	//过滤一下data.cartIds，确保其存在于当前会员的cartItemList中
 	filteredItemList := make([]cart.OmsCartItem, 0)
 	//将会员购物车里的itemId转化为map
@@ -173,13 +173,14 @@ func CartListPromotion(cartIds []int64, memberId int64) (results cart.CartPromot
 		}
 	}
 
+	global.Logger.Infof("filteredItemList的长度为:%d", len(filteredItemList))
+
 	//然后计算购物车促销信息
 	if len(filteredItemList) != 0 {
 		results, err = calcCartPromotion(filteredItemList)
 		if err != nil {
 			return nil, errors.New("计算购物车促销信息出错:" + err.Error())
 		}
-		//global.Logger.Infof("计算购物车促销信息得到的结果为:%v", results)
 		return results, nil
 	}
 	return
@@ -467,55 +468,87 @@ func handleNoReduce(cartPromotionItemList []*cart.CartPromotionItem, itemList []
 	return cartPromotionItemList
 }
 
-// todo:没转化过来，除了手动赋值的两个字段，插入的数据都是空的
 func UpdateAttr(data *receive.UpdateAttrRequestStruct) (err error) {
 	//从data里结构出item对象，然后删除原本的数据，插入新的数据
+	//正确的逻辑应该是现根据id查出购物车商品的信息，对于那些不为空的字段，进行更新，最后调用updates方法进行更新
+
 	cartItem := &cart.OmsCartItem{}
-	jsonData, _ := json.Marshal(data)
-	if err = json.Unmarshal(jsonData, cartItem); err != nil {
-		//如果这种映射方法不可行，采取别的映射方法，这里不应该错误返回,因为至少可以手动逐字段映射保证成功
-		cartItem = mapRequestDataToCartItem(data)
+	if err := cartItem.GetById(*data.Id); err != nil {
+		return errors.New("根据id查询购物车商品出错:" + err.Error())
 	}
-	//先删除旧的表项
-	if err := global.Db.Model(&cart.OmsCartItem{}).Where("id = ?", cartItem.Id).UpdateColumn("delete_status", 1).Error; err != nil {
-		return errors.New("从OmsCartItem表中删除旧数据出错:" + err.Error())
+
+	// 使用data的非空字段更新cartItem
+	//if data.ProductId != nil {
+	//	cartItem.ProductId = *data.ProductId
+	//}
+	//if data.ProductSkuId != nil {
+	//	cartItem.ProductSkuId = *data.ProductSkuId
+	//}
+	//if data.MemberId != nil {
+	//	cartItem.MemberId = *data.MemberId
+	//}
+	//if data.Quantity != nil {
+	//	cartItem.Quantity = *data.Quantity
+	//}
+	//if data.Price != nil {
+	//	cartItem.Price = *data.Price
+	//}
+	//if data.ProductPic != nil {
+	//	cartItem.ProductPic = *data.ProductPic
+	//}
+	//if data.ProductName != nil {
+	//	cartItem.ProductName = *data.ProductName
+	//}
+	//if data.ProductSubTitle != nil {
+	//	cartItem.ProductSubTitle = *data.ProductSubTitle
+	//}
+	//if data.ProductSkuCode != nil {
+	//	cartItem.ProductSkuCode = *data.ProductSkuCode
+	//}
+	//if data.MemberNickname != nil {
+	//	cartItem.MemberNickname = *data.MemberNickname
+	//}
+	//if data.CreateDate != nil {
+	//	cartItem.CreateDate = *data.CreateDate
+	//}
+	//if data.ModifyDate != nil {
+	//	cartItem.ModifyDate = *data.ModifyDate
+	//}
+	//if data.DeleteStatus != nil {
+	//	cartItem.DeleteStatus = *data.DeleteStatus
+	//}
+	//if data.ProductCategoryId != nil {
+	//	cartItem.ProductCategoryId = *data.ProductCategoryId
+	//}
+	//if data.ProductBrand != nil {
+	//	cartItem.ProductBrand = *data.ProductBrand
+	//}
+	//if data.ProductSn != nil {
+	//	cartItem.ProductSn = *data.ProductSn
+	//}
+	//if data.ProductAttr != nil {
+	//	cartItem.ProductAttr = *data.ProductAttr
+	//}
+
+	// 使用反射更新非空字段
+	dataVal := reflect.ValueOf(data).Elem()
+	cartItemVal := reflect.ValueOf(cartItem).Elem()
+	for i := 0; i < dataVal.NumField(); i++ {
+		field := dataVal.Field(i)
+		fieldName := dataVal.Type().Field(i).Name
+		if !field.IsNil() {
+			cartItemField := cartItemVal.FieldByName(fieldName)
+			if cartItemField.IsValid() && cartItemField.CanSet() {
+				cartItemField.Set(field.Elem())
+			}
+		}
 	}
-	//用cartItem去更新表项
-	cartItem.CreateDate = time.Now().Format("2006-01-02 15:04:05")
+
 	cartItem.ModifyDate = time.Now().Format("2006-01-02 15:04:05")
-	global.Logger.Infof("即将插入的新数据为%v", cartItem)
-	if err := global.Db.Model(&cart.OmsCartItem{}).Create(cartItem).Error; err != nil {
+	if err := global.Db.Model(&cart.OmsCartItem{}).Where("id = ?", cartItem.Id).Updates(cartItem).Error; err != nil {
 		return errors.New("在OmsCartItem插入新数据出错:" + err.Error())
 	}
 	return nil
-}
-
-func mapRequestDataToCartItem(data *receive.UpdateAttrRequestStruct) (cartItem *cart.OmsCartItem) {
-	if err := mapstructure.Decode(data, &cartItem); err != nil {
-		//如果还是不对，那就手动映射
-		result := &cart.OmsCartItem{
-			Id:                data.Id,
-			ProductId:         data.ProductId,
-			ProductSkuId:      data.ProductSkuId,
-			MemberId:          data.MemberId,
-			Quantity:          data.Quantity,
-			Price:             data.Price,
-			ProductPic:        data.ProductPic,
-			ProductName:       data.ProductName,
-			ProductSubTitle:   data.ProductSubTitle,
-			ProductSkuCode:    data.ProductSkuCode,
-			MemberNickname:    data.MemberNickname,
-			CreateDate:        data.CreateDate,
-			ModifyDate:        data.ModifyDate,
-			DeleteStatus:      data.DeleteStatus,
-			ProductCategoryId: data.ProductCategoryId,
-			ProductBrand:      data.ProductBrand,
-			ProductSn:         data.ProductSn,
-			ProductAttr:       data.ProductAttr,
-		}
-		return result
-	}
-	return
 }
 
 func UpdateQuantity(data *receive.UpdateQuantityRequestStruct, memberId int64) (err error) {

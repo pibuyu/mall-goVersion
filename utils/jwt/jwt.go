@@ -7,6 +7,7 @@ import (
 	"gomall/consts"
 	"gomall/global"
 	"gomall/models/users"
+	"log"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -44,7 +45,8 @@ func NextToken(uid int64) string {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(Hotkey)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatalf("签发token时出错:%v", err)
+		return ""
 	}
 
 	//签发token的同时往redis里放一份;然后在中间件查看收到的token和redis中的最新token是否一致
@@ -61,7 +63,7 @@ func ParseToken(tokenStr string) (*Claims, error) {
 	})
 	if err != nil {
 		global.Logger.Errorf("token parse err : " + err.Error())
-		return nil, err
+		return nil, errors.New("token parse err : " + err.Error())
 	}
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
 		return claims, nil
@@ -70,7 +72,9 @@ func ParseToken(tokenStr string) (*Claims, error) {
 }
 
 func GetMemberIdFromCtx(ctx *gin.Context) (int64, error) {
+
 	token := ctx.Request.Header.Get("Authorization")
+	global.Logger.Infof("接收到的Authorization字段为:%s", token)
 	claims, err := ParseToken(token)
 	if err != nil {
 		return 0, errors.New("从ctx中获取MemberId出错:" + err.Error())

@@ -21,10 +21,18 @@ func (c LoginController) Login(ctx *gin.Context) {
 		user, err := userCache.LoadUserByUsername(rec.Username)
 		if err != nil {
 			c.Response(ctx, "登录失败", nil, errors.New("query userinfo failed:"+err.Error()))
+			return
+		}
+		if user == nil {
+			c.Response(ctx, "登录失败", nil, errors.New("查询用户信息失败"))
+			return
 		}
 		//然后生成token
 		token := jwt.NextToken(user.ID)
-		//然后向当前context头里添加了token 信息
+		if token == "" {
+			c.Response(ctx, "token生成失败", nil, errors.New("token generate failed"))
+		}
+		//然后向当前context头里添加了token信息
 		ctx.Request.Header.Set("Authorization", token)
 		responseData := map[string]string{
 			"token":     token,

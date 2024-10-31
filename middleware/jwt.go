@@ -20,7 +20,6 @@ func VerificationToken() gin.HandlerFunc {
 		token := c.Request.Header.Get("Authorization")
 
 		//验证是否为redis中的最新token；如果不是，就踹下线
-		//todo：现在逻辑大体是对的，但是只有在访问需要登陆的接口时，才会把旧的连接踹掉，需要考虑怎么立刻把旧的连接踹掉
 
 		//token为空直接重定向，就不会报：“请求错误”的提示信息了
 		if len(token) == 0 {
@@ -29,6 +28,13 @@ func VerificationToken() gin.HandlerFunc {
 			return
 		}
 		claim, err := jwt.ParseToken(token)
+
+		//没有解析出来claim也应该直接返回
+		if claim == nil {
+			ControllersCommon.NotLogin(c, "token无效！")
+			c.Abort()
+			return
+		}
 
 		key := fmt.Sprintf("%d_%s", claim.UserID, consts.TokenString)
 		redisToken, _ := global.RedisDb.Get(key).Result()

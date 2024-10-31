@@ -40,24 +40,24 @@ type CartListPromotionRequestStruct struct {
 }
 
 type UpdateAttrRequestStruct struct {
-	Id                int64   `json:"id"`
-	ProductId         int64   `json:"product_id"`
-	ProductSkuId      int64   `json:"product_sku_id"`
-	MemberId          int64   `json:"member_id"`
-	Quantity          int     `json:"quantity"`
-	Price             float32 `json:"price"`
-	ProductPic        string  `json:"product_pic"`
-	ProductName       string  `json:"product_name"`
-	ProductSubTitle   string  `json:"product_sub_title"`
-	ProductSkuCode    string  `json:"product_sku_code"`
-	MemberNickname    string  `json:"member_nickname"`
-	CreateDate        string  `json:"create_date"`
-	ModifyDate        string  `json:"modify_date"`
-	DeleteStatus      int     `json:"delete_status"`
-	ProductCategoryId int64   `json:"product_category_id"`
-	ProductBrand      string  `json:"product_brand"`
-	ProductSn         string  `json:"product_sn"`
-	ProductAttr       string  `json:"product_attr"`
+	Id                *int64   `json:"id"`
+	ProductId         *int64   `json:"product_id"`
+	ProductSkuId      *int64   `json:"product_sku_id"`
+	MemberId          *int64   `json:"member_id"`
+	Quantity          *int     `json:"quantity"`
+	Price             *float32 `json:"price"`
+	ProductPic        *string  `json:"product_pic"`
+	ProductName       *string  `json:"product_name"`
+	ProductSubTitle   *string  `json:"product_sub_title"`
+	ProductSkuCode    *string  `json:"product_sku_code"`
+	MemberNickname    *string  `json:"member_nickname"`
+	CreateDate        *string  `json:"create_date"`
+	ModifyDate        *string  `json:"modify_date"`
+	DeleteStatus      *int     `json:"delete_status"`
+	ProductCategoryId *int64   `json:"product_category_id"`
+	ProductBrand      *string  `json:"product_brand"`
+	ProductSn         *string  `json:"product_sn"`
+	ProductAttr       *string  `json:"product_attr"`
 }
 
 type UpdateQuantityRequestStruct struct {

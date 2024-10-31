@@ -32,6 +32,10 @@ func (User) TableName() string {
 	return "ums_member"
 }
 
+func (u *User) GetByName(name string) error {
+	return global.Db.Model(&User{}).Where("username = ?", name).Find(u).Error
+}
+
 func (user *User) GetMemberById(memberId int64) (err error) {
 	if err := global.Db.Model(&User{}).Where("id = ?", memberId).First(&user).Error; err != nil {
 		return errors.New("根据id查询用户出错:" + err.Error())

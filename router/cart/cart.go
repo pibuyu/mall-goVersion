@@ -3,13 +3,13 @@ package cart
 import (
 	"github.com/gin-gonic/gin"
 	"gomall/controllers/cart"
-	middlewares "gomall/middleware"
 )
 
 type CartRouter struct{}
 
 func (c *CartRouter) InitCartRouter(Router *gin.RouterGroup) {
-	cartRouter := Router.Group("cart").Use(middlewares.VerificationToken())
+	//todo:先把use里的verifyToken取消
+	cartRouter := Router.Group("cart").Use()
 	{
 		cartController := new(cart.CartController)
 		cartRouter.POST("/add", cartController.AddCartItem)
