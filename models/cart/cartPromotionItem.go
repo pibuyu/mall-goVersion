@@ -1,7 +1,7 @@
 package cart
 
 type CartPromotionItem struct {
-	CartItem OmsCartItem
+	OmsCartItem
 
 	PromotionMessage string  `json:"promotion_message"` //促销活动信息
 	ReduceAmount     float32 `json:"reduce_amount"`     //促销活动减去的金额，针对每个商品

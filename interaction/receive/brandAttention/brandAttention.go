@@ -23,6 +23,6 @@ type DetailReqStruct struct {
 }
 
 type ListReqStruct struct {
-	PageNum  int `json:"pageNum"`
-	PageSize int `json:"pageSize"`
+	PageNum  int `form:"pageNum"`
+	PageSize int `form:"pageSize"`
 }

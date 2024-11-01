@@ -16,6 +16,6 @@ func (c *HomeRouter) InitHomeRouter(Router *gin.RouterGroup) {
 		homeRouter.GET("/newProductList", homeController.GetNewProductList)
 		homeRouter.GET("/recommendProductList", homeController.GetRecommendProductList)
 		homeRouter.GET("/subjectList", homeController.GetSubjectList)
-		homeRouter.GET("/productCateList", homeController.GetProductCateList)
+		homeRouter.GET("/productCateList/:parentId", homeController.GetProductCateList)
 	}
 }

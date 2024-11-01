@@ -9,48 +9,49 @@ import (
 
 type PmsProduct struct {
 	Id                         int64     `json:"id" gorm:"id"`
-	BrandId                    int64     `json:"brand_id" gorm:"brand_id"`
-	ProductCategoryId          int64     `json:"product_category_id" gorm:"product_category_id"`
-	FeightTemplateId           int64     `json:"feight_template_id" gorm:"feight_template_id"`
-	ProductAttributeCategoryId int64     `json:"product_attribute_category_id" gorm:"product_attribute_category_id"`
+	BrandId                    int64     `json:"brandId" gorm:"brand_id"`
+	ProductCategoryId          int64     `json:"productCategoryId" gorm:"product_category_id"`
+	FeightTemplateId           int64     `json:"feightTemplateId" gorm:"feight_template_id"`
+	ProductAttributeCategoryId int64     `json:"productAttributeCategoryId" gorm:"product_attribute_category_id"`
 	Name                       string    `json:"name" gorm:"name"`
 	Pic                        string    `json:"pic" gorm:"pic"`
-	ProductSn                  string    `json:"product_sn" gorm:"product_sn"`
-	DeleteStatus               int       `json:"delete_status" gorm:"delete_status"`
-	PublishStatus              int       `json:"publish_status" gorm:"publish_status"`
-	NewStatus                  int       `json:"new_status" gorm:"new_status"`
-	RecommandStatus            int       `json:"recommand_status" gorm:"recommand_status"`
-	VerifyStatus               int       `json:"verify_status" gorm:"verify_status"`
+	ProductSn                  string    `json:"productSn" gorm:"product_sn"`
+	DeleteStatus               int       `json:"deleteStatus" gorm:"delete_status"`
+	PublishStatus              int       `json:"publishStatus" gorm:"publish_status"`
+	NewStatus                  int       `json:"newStatus" gorm:"new_status"`
+	RecommandStatus            int       `json:"recommandStatus" gorm:"recommand_status"`
+	VerifyStatus               int       `json:"verifyStatus" gorm:"verify_status"`
 	Sort                       int       `json:"sort" gorm:"sort"`
 	Sale                       int       `json:"sale" gorm:"sale"`
 	Price                      float32   `json:"price" gorm:"price"`
-	PromotionPrice             float32   `json:"promotion_price" gorm:"promotion_price"`
-	GiftGrowth                 int       `json:"gift_growth" gorm:"gift_growth"`
-	GiftPoint                  int       `json:"gift_point" gorm:"gift_point"`
-	UsePointLimit              int       `json:"use_point_limit" gorm:"use_point_limit"`
-	SubTitle                   string    `json:"sub_title" gorm:"sub_title"`
+	PromotionPrice             float32   `json:"promotionPrice" gorm:"promotion_price"`
+	GiftGrowth                 int       `json:"giftGrowth" gorm:"gift_growth"`
+	GiftPoint                  int       `json:"giftPoint" gorm:"gift_point"`
+	UsePointLimit              int       `json:"usePointLimit" gorm:"use_point_limit"`
+	SubTitle                   string    `json:"subTitle" gorm:"sub_title"`
 	Description                string    `json:"description" gorm:"description"`
-	OriginalPrice              float32   `json:"original_price" gorm:"original_price"`
+	OriginalPrice              float32   `json:"originalPrice" gorm:"original_price"`
 	Stock                      int       `json:"stock" gorm:"stock"`
-	LowStock                   int       `json:"low_stock" gorm:"low_stock"`
+	LowStock                   int       `json:"lowStock" gorm:"low_stock"`
 	Unit                       string    `json:"unit" gorm:"unit"`
 	Weight                     float32   `json:"weight" gorm:"weight"`
-	PreviewStatus              int       `json:"preview_status" gorm:"preview_status"`
-	ServiceIds                 string    `json:"service_ids" gorm:"service_ids"`
+	PreviewStatus              int       `json:"previewStatus" gorm:"preview_status"`
+	ServiceIds                 string    `json:"serviceIds" gorm:"service_ids"`
 	Keywords                   string    `json:"keywords" gorm:"keywords"`
 	Note                       string    `json:"note" gorm:"note"`
-	AlbumPics                  string    `json:"album_pics" gorm:"album_pics"`
-	DetailTitle                string    `json:"detail_title" gorm:"detail_title"`
-	DetailDesc                 string    `json:"detail_desc" gorm:"detail_desc"`
-	DetailHtml                 string    `json:"detail_html" gorm:"detail_html"`
-	DetailMobileHtml           string    `json:"detail_mobile_html" gorm:"detail_mobile_html"`
-	PromotionStartTime         time.Time `json:"promotion_start_time" gorm:"promotion_start_time"`
-	PromotionEndTime           time.Time `json:"promotion_end_time" gorm:"promotion_end_time"`
-	PromotionPerLimit          int       `json:"promotion_per_limit" gorm:"promotion_per_limit"`
-	PromotionType              int       `json:"promotion_type" gorm:"promotion_type"`
-	BrandName                  string    `json:"brand_name" gorm:"brand_name"`
-	ProductCategoryName        string    `json:"product_category_name" gorm:"product_category_name"`
+	AlbumPics                  string    `json:"albumPics" gorm:"album_pics"`
+	DetailTitle                string    `json:"detailTitle" gorm:"detail_title"`
+	DetailDesc                 string    `json:"detailDesc" gorm:"detail_desc"`
+	DetailHtml                 string    `json:"detailHtml" gorm:"detail_html"`
+	DetailMobileHtml           string    `json:"detailMobileHtml" gorm:"detail_mobile_html"`
+	PromotionStartTime         time.Time `json:"promotionStartTime" gorm:"promotion_start_time"`
+	PromotionEndTime           time.Time `json:"promotionEndTime" gorm:"promotion_end_time"`
+	PromotionPerLimit          int       `json:"promotionPerLimit" gorm:"promotion_per_limit"`
+	PromotionType              int       `json:"promotionType" gorm:"promotion_type"`
+	BrandName                  string    `json:"brandName" gorm:"brand_name"`
+	ProductCategoryName        string    `json:"productCategoryName" gorm:"product_category_name"`
 }
+
 type PmsProductList []PmsProduct
 
 func (p *PmsProduct) GetById(id int64) (err error) {

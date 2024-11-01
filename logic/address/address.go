@@ -36,8 +36,8 @@ func DeleteAddress(id int64, memberId int64) (err error) {
 		Delete(&address.UmsMemberReceiveAddress{}, id, memberId).Error
 }
 
-func List() (result []address.UmsMemberReceiveAddress, err error) {
-	if err = global.Db.Model(address.UmsMemberReceiveAddress{}).Find(&result).Error; err != nil {
+func List(memberId int64) (result []address.UmsMemberReceiveAddress, err error) {
+	if err = global.Db.Model(address.UmsMemberReceiveAddress{}).Where("member_id", memberId).Find(&result).Error; err != nil {
 		return nil, errors.New("查询地址列表失败：" + err.Error())
 	}
 	return

@@ -7,6 +7,8 @@ import (
 	receive "gomall/interaction/receive/order"
 	"gomall/logic/order"
 	"gomall/utils/jwt"
+	"gomall/utils/response"
+	"strconv"
 )
 
 type OrderController struct {
@@ -14,13 +16,9 @@ type OrderController struct {
 }
 
 func (c *OrderController) Detail(ctx *gin.Context) {
-	var rec receive.DetailReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
-		global.Logger.Errorf("Detail请求传入参绑定失败: %v", err)
-		c.Response(ctx, "请求参数错误", nil, err)
-		return
-	}
-	result, err := order.Detail(&rec)
+	orderId, _ := strconv.ParseInt(ctx.Param("orderId"), 10, 64)
+	global.Logger.Infof("接收到的orderId为：%d", orderId)
+	result, err := order.Detail(orderId)
 	if err != nil {
 		c.Response(ctx, "获取订单详情失败", nil, err)
 	}
@@ -74,15 +72,20 @@ func (c *OrderController) DeleteOrder(ctx *gin.Context) {
 
 // 根据购物车信息生成确认单
 func (c *OrderController) GenerateConfirmOrder(ctx *gin.Context) {
-	if rec, err := controller.ShouldBind(ctx, new(receive.GenerateConfirmOrderReqStruct)); err == nil {
-		confirmOrder, err := order.GenerateConfirmOrder(rec.CartIds, ctx)
-		if err != nil {
-			global.Logger.Error("根据购物车信息生成确认单出错:%v", err)
-			c.Response(ctx, "根据购物车信息生成确认单失败", nil, err)
-			return
-		}
-		c.Response(ctx, "根据购物车信息生成确认单成功", confirmOrder, nil)
+	var ids []int64
+	if err := ctx.ShouldBind(&ids); err != nil {
+		global.Logger.Errorf("GenerateConfirmOrder请求传入参绑定失败: %v", err)
+		c.Response(ctx, "请求参数错误", nil, err)
+		return
 	}
+	confirmOrder, err := order.GenerateConfirmOrder(ids, ctx)
+	if err != nil {
+		global.Logger.Error("根据购物车信息生成确认单出错:%v", err)
+		c.Response(ctx, "根据购物车信息生成确认单失败", nil, err)
+		return
+	}
+	c.Response(ctx, "根据购物车信息生成确认单成功", confirmOrder, nil)
+
 }
 
 func (c *OrderController) GenerateOrder(ctx *gin.Context) {
@@ -100,19 +103,20 @@ func (c *OrderController) GenerateOrder(ctx *gin.Context) {
 // List 按订单状态分页获取订单列表
 func (c *OrderController) List(ctx *gin.Context) {
 	var rec receive.ListReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
+	if err := ctx.ShouldBind(&rec); err != nil {
 		global.Logger.Errorf("List请求传入参绑定失败: %v", err)
 		c.Response(ctx, "请求参数错误", nil, err)
 		return
 	}
 
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
-
 	result, err := order.List(&rec, memberId)
 	if err != nil {
 		c.Response(ctx, "按订单状态分页获取订单列表失败", nil, err)
 	}
-	c.Response(ctx, "按订单状态分页获取订单列表成功", result, nil)
+	global.Logger.Infof("分页查询订单，获取到的pageResult为:%v", result)
+	pageResult := response.ResetPage(result, int64(len(result)), rec.PageNum, rec.PageSize)
+	c.Response(ctx, "按订单状态分页获取订单列表成功", pageResult, nil)
 }
 
 // PaySuccess 用户支付成功的回调

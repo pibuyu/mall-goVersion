@@ -12,7 +12,7 @@ type AddReqStruct struct {
 	ProductId       int64     `json:"productId" binding:"required"`
 	ProductName     string    `json:"productName"`
 	ProductPic      string    `json:"productPic"`
-	ProductPrice    float32   `json:"productPrice"`
+	ProductPrice    string    `json:"productPrice"`
 	ProductSubTitle string    `json:"productSubTitle"`
 }
 

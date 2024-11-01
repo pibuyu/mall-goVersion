@@ -1,6 +1,7 @@
 package readHistory
 
 import (
+	"context"
 	"errors"
 	"gomall/global"
 	receive "gomall/interaction/receive/readHistory"
@@ -43,26 +44,39 @@ func CreateReadHistory(data *receive.CreateReadHistoryReqStruct, memberId int64)
 }
 
 func ClearReadHistory(memberId int64) (err error) {
-	if err = global.Db.Model(&history.MemberReadHistory{}).Where("member_id = ?", memberId).
-		Delete(&history.MemberReadHistory{}).Error; err != nil {
-		return errors.New("清空浏览记录出错:" + err.Error())
+	db := global.MongoDb.Database("mall-port")
+	repo := NewMemberReadHistoryRepository(db, "memberReadHistory")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	if err = repo.Clear(ctx, memberId); err != nil {
+		return err
 	}
 	return nil
 }
 
 func DeleteReadHistoryByIds(data *receive.DeleteReadHistoryReqStruct, memberId int64) (err error) {
-	if err = global.Db.Model(&history.MemberReadHistory{}).
-		Where("member_id = ?", memberId).Where("id in ?", data.Ids).
-		Delete(&history.MemberReadHistory{}).Error; err != nil {
-		return errors.New("删除浏览记录出错：" + err.Error())
+	db := global.MongoDb.Database("mall-port")
+	repo := NewMemberReadHistoryRepository(db, "memberReadHistory")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	if err = repo.DeleteByIds(ctx, data.Ids, memberId); err != nil {
+		return err
 	}
+
 	return nil
 }
 
-func ListReadHistory(offset int64, limit int64, memberId int64) (results []history.MemberReadHistory, err error) {
-	if err = global.Db.Model(&history.MemberReadHistory{}).Where("member_id = ?", memberId).
-		Offset(int(offset)).Limit(int(limit)).Order("create_time desc").Find(&results).Error; err != nil {
-		return nil, errors.New("分页查找浏览记录出错:%v" + err.Error())
+func ListReadHistory(pageNum int64, pageSize int64, memberId int64) (results []history.MemberReadHistoryMongoStruct, err error) {
+	db := global.MongoDb.Database("mall-port")
+	repo := NewMemberReadHistoryRepository(db, "memberReadHistory")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	//执行查询
+	result, err := repo.FindByMemberIdOrderByCreateTimeDesc(ctx, int(pageNum), int(pageSize), memberId)
+	if err != nil {
+		return nil, errors.New("获取收藏商品列表失败: " + err.Error())
 	}
-	return
+	global.Logger.Infof("分页查询浏览记录的result为:%v", result)
+
+	return result, nil
 }

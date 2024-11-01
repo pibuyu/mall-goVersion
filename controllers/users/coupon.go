@@ -38,11 +38,13 @@ func (c *CouponController) Add(ctx *gin.Context) {
 
 func (c *CouponController) List(ctx *gin.Context) {
 	var rec receive.ListCouponRequestStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
+	//请求优惠券列表的参数是字符串参数，用shouldBind绑定
+	if err := ctx.ShouldBind(&rec); err != nil {
 		global.Logger.Errorf("获取优惠券列表时，参数绑定失败:%v", err.Error())
 		c.Response(ctx, "获取优惠券列表时，参数绑定失败:"+err.Error(), nil, err)
 		return
 	}
+	global.Logger.Infof("接收到的coupon的useStatus为：%d", rec.UseStatus)
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
 
 	couponList, err := coupon.GetCouponList(memberId, rec.UseStatus)

@@ -7,17 +7,17 @@ import (
 )
 
 type PmsSkuStock struct {
-	Id             int64   `json:"id" gorm:"id"`
-	ProductId      int64   `json:"product_id" gorm:"product_id"`
-	SkuCode        string  `json:"sku_code" gorm:"sku_code"`
-	Price          float32 `json:"price" gorm:"price"`
-	Stock          int     `json:"stock" gorm:"stock"`
-	LowStock       int     `json:"low_stock" gorm:"low_stock"`
-	Pic            string  `json:"pic" gorm:"pic"`
-	Sale           int     `json:"sale" gorm:"sale"`
-	PromotionPrice float32 `json:"promotion_price" gorm:"promotion_price"`
-	LockStock      int     `json:"lock_stock" gorm:"lock_stock"`
-	SpData         string  `json:"sp_data" gorm:"sp_data"`
+	Id             int64   `gorm:"column:id" json:"id"`                          // SKU ID
+	ProductId      int64   `gorm:"column:product_id" json:"productId"`           // 产品ID
+	SkuCode        string  `gorm:"column:sku_code" json:"skuCode"`               // SKU编码
+	Price          float32 `gorm:"column:price" json:"price"`                    // 价格
+	Stock          int     `gorm:"column:stock" json:"stock"`                    // 库存
+	LowStock       int     `gorm:"column:low_stock" json:"lowStock"`             // 低库存警告
+	Pic            string  `gorm:"column:pic" json:"pic"`                        // 图片
+	Sale           int     `gorm:"column:sale" json:"sale"`                      // 销售量
+	PromotionPrice float32 `gorm:"column:promotion_price" json:"promotionPrice"` // 促销价格
+	LockStock      int     `gorm:"column:lock_stock" json:"lockStock"`           // 锁定库存
+	SpData         string  `gorm:"column:sp_data" json:"spData"`                 // SKU数据
 }
 
 type PmsSkuStockList []PmsSkuStock

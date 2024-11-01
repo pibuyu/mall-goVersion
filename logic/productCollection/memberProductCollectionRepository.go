@@ -2,7 +2,6 @@ package productCollection
 
 import (
 	"context"
-	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -10,8 +9,6 @@ import (
 	"gomall/global"
 	"gomall/models/productCollection"
 	"log"
-	"math"
-	"strconv"
 	"time"
 )
 
@@ -41,8 +38,8 @@ func (repo *MemberProductCollectionRepository) FindByMemberIdAndProductId(ctx co
 func (repo *MemberProductCollectionRepository) Save(ctx context.Context, collection *productCollection.MemberProductCollection) (err error) {
 	// 设置过滤条件，确保同一 (memberId, productId) 组合不会重复插入
 	filter := bson.M{
-		"memberId":  collection.MemberId,
-		"productId": collection.ProductId,
+		"memberId":  collection.MemberID,
+		"productId": collection.ProductID,
 	}
 	// 使用 upsert 选项：如果存在则更新，不存在则插入
 	update := bson.M{
@@ -113,13 +110,13 @@ func (repo *MemberProductCollectionRepository) Detail(ctx context.Context, produ
 	for _, elem := range rawResult {
 		switch elem.Key {
 		case "memberId":
-			result.MemberId, _ = elem.Value.(int64)
+			result.MemberID, _ = elem.Value.(int64)
 		case "memberNickname":
 			result.MemberNickname, _ = elem.Value.(string)
 		case "memberIcon":
 			result.MemberIcon, _ = elem.Value.(string)
 		case "productId":
-			result.ProductId, _ = elem.Value.(int64)
+			result.ProductID, _ = elem.Value.(int64)
 		case "productName":
 			result.ProductName, _ = elem.Value.(string)
 		case "productPic":
@@ -128,14 +125,7 @@ func (repo *MemberProductCollectionRepository) Detail(ctx context.Context, produ
 			result.ProductSubTitle, _ = elem.Value.(string)
 		case "productPrice":
 			if v, ok := elem.Value.(string); ok {
-				// 将productPrice转换为float32
-				//todo:这里需要保留2位小数，改来改去都不对
-				if price, err := strconv.ParseFloat(v, 32); err == nil {
-					price = math.Round(price*100) / 100
-					result.ProductPrice = float32(price)
-				} else {
-					global.Logger.Errorf("price转换为float32解析出错:%v", err)
-				}
+				result.ProductPrice = v
 			}
 		case "createTime":
 			result.CreateTime, _ = elem.Value.(time.Time)
@@ -177,7 +167,7 @@ func (repo *MemberProductCollectionRepository) List(ctx context.Context, pageNum
 			switch elem.Key {
 			case "memberId":
 				if v, ok := elem.Value.(int64); ok {
-					collection.MemberId = v
+					collection.MemberID = v
 				}
 			case "memberNickname":
 				if v, ok := elem.Value.(string); ok {
@@ -189,7 +179,7 @@ func (repo *MemberProductCollectionRepository) List(ctx context.Context, pageNum
 				}
 			case "productId":
 				if v, ok := elem.Value.(int64); ok {
-					collection.ProductId = v
+					collection.ProductID = v
 				}
 			case "productName":
 				if v, ok := elem.Value.(string); ok {
@@ -205,12 +195,7 @@ func (repo *MemberProductCollectionRepository) List(ctx context.Context, pageNum
 				}
 			case "productPrice":
 				if v, ok := elem.Value.(string); ok {
-					// 将字符串转换为 float32 类型，保留两位小数
-					if price, err := strconv.ParseFloat(v, 32); err == nil {
-						collection.ProductPrice = float32(math.Round(price*100) / 100) // 保留两位小数
-					} else {
-						return nil, fmt.Errorf("productPrice 字段解析出错: %v", err)
-					}
+					collection.ProductPrice = v
 				}
 			case "createTime":
 				if v, ok := elem.Value.(primitive.DateTime); ok {

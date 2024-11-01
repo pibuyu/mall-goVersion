@@ -6,8 +6,10 @@ import (
 	"gomall/global"
 	receive "gomall/interaction/receive/productCollection"
 	productCollectionLogic "gomall/logic/productCollection"
+	productCollectionModels "gomall/models/productCollection"
 	"gomall/models/users"
 	"gomall/utils/jwt"
+	"gomall/utils/response"
 )
 
 type ProductCollectionController struct {
@@ -83,5 +85,9 @@ func (c *ProductCollectionController) List(ctx *gin.Context) {
 		c.Response(ctx, "获取商品收藏列表失败", nil, err)
 		return
 	}
-	c.Response(ctx, "获取商品收藏列表成功", result, nil)
+	pageResult := response.ResetPage(result, int64(len(result)), rec.PageNum, rec.PageSize)
+	if pageResult.List == nil {
+		pageResult.List = []productCollectionModels.MemberProductCollection{}
+	}
+	c.Response(ctx, "获取商品收藏列表成功", pageResult, nil)
 }

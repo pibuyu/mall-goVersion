@@ -7,6 +7,7 @@ import (
 	receive "gomall/interaction/receive/home"
 	homeResponse "gomall/interaction/response/home"
 	"gomall/logic/home"
+	"strconv"
 )
 
 type HomeController struct {
@@ -133,13 +134,14 @@ func (c *HomeController) GetSubjectList(ctx *gin.Context) {
 
 // GetProductCateList 获取首页商品分类
 func (c *HomeController) GetProductCateList(ctx *gin.Context) {
-	var rec receive.GetProductCateListRequestStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
-		global.Logger.Errorf("GetProductCateList请求传入参绑定失败: %v", err)
-		c.Response(ctx, "请求参数错误", nil, err)
-		return
-	}
-	productCateList, err := home.GetProductCateList(&rec)
+	//var rec receive.GetProductCateListRequestStruct
+	//if err := ctx.ShouldBindJSON(&rec); err != nil {
+	//	global.Logger.Errorf("GetProductCateList请求传入参绑定失败: %v", err)
+	//	c.Response(ctx, "请求参数错误", nil, err)
+	//	return
+	//}
+	parentId, _ := strconv.ParseInt(ctx.Param("parentId"), 10, 64)
+	productCateList, err := home.GetProductCateList(parentId)
 	if err != nil {
 		c.Response(ctx, "获取专题出错", nil, err)
 		return

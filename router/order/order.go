@@ -11,7 +11,7 @@ func (c *OrderRouter) InitOrderRouter(Router *gin.RouterGroup) {
 	orderRouter := Router.Group("order").Use()
 	{
 		orderController := new(order.OrderController)
-		orderRouter.GET("/detail", orderController.Detail)                              //根据id获取订单详情
+		orderRouter.GET("/detail/:orderId", orderController.Detail)                     //根据id获取订单详情
 		orderRouter.POST("/cancelOrder", orderController.CancelOrder)                   //取消单个超时订单
 		orderRouter.POST("/confirmReceiveOrder", orderController.ConfirmReceiveOrder)   //确认收货
 		orderRouter.POST("/deleteOrder", orderController.DeleteOrder)                   //删除订单

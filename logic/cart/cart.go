@@ -151,10 +151,7 @@ func CartListPromotion(cartIds []int64, memberId int64) (results cart.CartPromot
 		return nil, errors.New("查询会员的购物车信息出错:" + err.Error())
 	}
 
-	global.Logger.Infof("传递过来的cartIds为:%v", cartIds)
-
-	global.Logger.Infof("cartItemList为%v", cartItemList)
-	//过滤一下data.cartIds，确保其存在于当前会员的cartItemList中
+	//过滤一下cartIds，确保其存在于当前会员的cartItemList中
 	filteredItemList := make([]cart.OmsCartItem, 0)
 	//将会员购物车里的itemId转化为map
 	cartIdSet := make(map[int64]struct{})
@@ -173,7 +170,7 @@ func CartListPromotion(cartIds []int64, memberId int64) (results cart.CartPromot
 		}
 	}
 
-	global.Logger.Infof("filteredItemList的长度为:%d", len(filteredItemList))
+	//global.Logger.Infof("打印一下filteredItemList的长度：%d", len(filteredItemList))
 
 	//然后计算购物车促销信息
 	if len(filteredItemList) != 0 {
@@ -189,22 +186,22 @@ func CartListPromotion(cartIds []int64, memberId int64) (results cart.CartPromot
 func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList cart.CartPromotionItemList, err error) {
 	//1.现根据productId对cartItemList进行分组，以spu为单位计算优惠
 	productCartMap := groupCartItemBySpu(cartItemList)
-
 	//2.查询所有商品的优惠相关信息
 	promotionProductList, err := getPromotionProductList(cartItemList)
 	if err != nil {
 		return nil, err
 	}
 
-	//todo:经过下面的逻辑处理后，返回的cartPromotionItemList为空，需要排查一下.初步分析为：getPromotionProductList函数调用了那个可能改错了的sql，
-	// 返回的优惠信息为空，导致promotionType=0，进入了handleNoReduce，传进去的是空的cartPromotionItemList，导致最后返回的也是空列表
+	//global.Logger.Infof("在计算优惠价格之前打印一下promotionProductList的长度:%d，以及productCartMap的长度：%d", len(promotionProductList), len(productCartMap))
+
+	//todo:下面这段到返回之前的逻辑有点问题，过来的长度为2，返回的长度怎么为3了呢？？？
 	//3.根据商品促销类型计算商品促销优惠价格
 	cartPromotionItemList = make([]cart.CartPromotionItem, 0)
 	for productId, itemList := range productCartMap {
 		//从promotionProductList找到productId=productId的那项
 		promotionProduct := getPromotionProductById(productId, promotionProductList)
-		//global.Logger.Infof("promotionProduct为：%v,对应的promotionType为:%d", promotionProduct, promotionProduct.Product.PromotionType)
 		promotionType := promotionProduct.Product.PromotionType
+		global.Logger.Infof("打印一下每一轮的promotionType=%d,以及promotionProduct的内容：%v", promotionType, promotionProduct)
 		//promotionType：0->没有促销使用原价;1->使用促销价；2->使用会员价；3->使用阶梯价格；4->使用满减价格；5->限时购
 		if promotionType == 1 {
 			for _, item := range itemList {
@@ -214,7 +211,7 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 				skuStock := getOriginalPrice(promotionProduct, item.ProductSkuId)
 				originalPrice := skuStock.Price
 				//单品促销使用原价
-				cartPromotionItem.CartItem.Price = originalPrice
+				cartPromotionItem.Price = originalPrice
 				cartPromotionItem.ReduceAmount = originalPrice - skuStock.PromotionPrice
 				cartPromotionItem.RealStock = skuStock.Stock - skuStock.LockStock
 				cartPromotionItem.Integration = promotionProduct.Product.GiftPoint
@@ -240,20 +237,87 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 					cartPromotionItem.Growth = promotionProduct.Product.GiftGrowth
 					cartPromotionItemList = append(cartPromotionItemList, cartPromotionItem)
 				}
+			} else {
+				pointerCartPromotionItemList := make([]*cart.CartPromotionItem, 0)
+				for _, item := range cartPromotionItemList {
+					pointerCartPromotionItemList = append(pointerCartPromotionItemList, &item)
+				}
+
+				result := handleNoReduce(pointerCartPromotionItemList, itemList, promotionProduct)
+				for _, item := range result {
+					cartPromotionItemList = append(cartPromotionItemList, *item)
+				}
+			}
+		} else if promotionType == 4 {
+			//todo:满减的逻辑还不对，小米的手机没有正确地满500-50
+			totalAmount := getCartItemAmount(itemList, promotionProductList)
+			fullReduction := getProductFullReduction(totalAmount, promotionProduct.ProductFullReduction)
+			if fullReduction != nil {
+				for _, item := range itemList {
+					cartPromotionItem := copyFromOmsCartItem(item)
+					message := getFullReductionPromotionMessage(*fullReduction)
+					cartPromotionItem.PromotionMessage = message
+					//(商品原价/总价)*满减金额
+					skuStock := getOriginalPrice(promotionProduct, item.ProductSkuId)
+					originalPrice := skuStock.Price
+					reduceAmount := originalPrice / (totalAmount * fullReduction.ReducePrice)
+					cartPromotionItem.ReduceAmount = reduceAmount
+					cartPromotionItem.RealStock = skuStock.Stock - skuStock.LockStock
+					cartPromotionItem.Integration = promotionProduct.Product.GiftPoint
+					cartPromotionItem.Growth = promotionProduct.Product.GiftGrowth
+					cartPromotionItemList = append(cartPromotionItemList, cartPromotionItem)
+				}
+			} else {
+				pointerCartPromotionItemList := make([]*cart.CartPromotionItem, 0)
+				result := handleNoReduce(pointerCartPromotionItemList, itemList, promotionProduct)
+				for _, item := range result {
+					cartPromotionItemList = append(cartPromotionItemList, *item)
+				}
 			}
 		} else {
-			//todo:也许这里应该传递过去的是指针切片，这样就可以直接修改cartPromotionItemList了
+			//cartPromotionItemList是空的，导致pointerCartPromotionItemList的长度也是0
 			pointerCartPromotionItemList := make([]*cart.CartPromotionItem, 0)
-			for _, item := range cartPromotionItemList {
-				pointerCartPromotionItemList = append(pointerCartPromotionItemList, &item)
-			}
+			//for _, item := range cartPromotionItemList {
+			//	pointerCartPromotionItemList = append(pointerCartPromotionItemList, &item)
+			//}
+			//todo:初步判断是这里出了问题，导致购物车2个商品，生成的订单3个商品。找到原因了：handleNoReduce被执行了多次，每次携带过去的参数是指针切片，会在上一步结果的基础上累加。初步解决方案：把上面的指针切片赋值的过程注释掉，每次穿一个全新的空指针切片过去
 			result := handleNoReduce(pointerCartPromotionItemList, itemList, promotionProduct)
 			for _, item := range result {
 				cartPromotionItemList = append(cartPromotionItemList, *item)
 			}
 		}
 	}
+	global.Logger.Infof("即将返回的cartPromotionItemList的长度为：%d,具体信息为:%v", len(cartPromotionItemList), cartPromotionItemList)
 	return cartPromotionItemList, nil
+}
+
+func getFullReductionPromotionMessage(fullReduction cart.PmsProductFullReduction) string {
+	return fmt.Sprintf("满减优惠：满%f元，减%f元", fullReduction.FullPrice, fullReduction.ReducePrice)
+}
+
+func getProductFullReduction(totalAmount float32, fullReductionList []cart.PmsProductFullReduction) (result *cart.PmsProductFullReduction) {
+	// 按条件从高到低排序
+	sort.Slice(fullReductionList, func(i, j int) bool {
+		return fullReductionList[i].FullPrice > fullReductionList[j].FullPrice
+	})
+
+	for _, fullReduction := range fullReductionList {
+		if totalAmount >= fullReduction.FullPrice {
+			return &fullReduction
+		}
+	}
+	return nil
+}
+
+// 获取购物车中指定商品的总价
+func getCartItemAmount(itemList []cart.OmsCartItem, promotionProductList []cart.PromotionProduct) (result float32) {
+	for _, item := range itemList {
+		//计算出商品原价
+		promotionProduct := getPromotionProductById(item.ProductId, promotionProductList)
+		skuStock := getOriginalPrice(promotionProduct, item.ProductSkuId)
+		result += skuStock.Price * float32(item.Quantity)
+	}
+	return
 }
 
 // 以spu为单位对购物车中商品进行分组
@@ -284,9 +348,6 @@ func getPromotionProductList(cartItemList []cart.OmsCartItem) (results []cart.Pr
 	}
 	//然后根据这些ids去查询优惠信息
 	results, err = getProductPromotionByIds(productIdList)
-	for _, item := range results {
-		global.Logger.Infof("getProductPromotionByIds方法返回的results中的product字段为：%v\n,SkuStockList字段为：%v\n,ProductLadderList字段为：%v\n,ProductFullReduction字段为:%v\n", item.Product, item.SkuStockList, item.ProductLadderList, item.ProductFullReduction)
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +471,26 @@ func getPromotionProductById(productId int64, promotionProductList []cart.Promot
 
 func copyFromOmsCartItem(item cart.OmsCartItem) (result cart.CartPromotionItem) {
 	var promotionItem cart.CartPromotionItem
-	promotionItem.CartItem = item
+	// 手动将item的字段值赋给promotionItem
+	promotionItem.Id = item.Id
+	promotionItem.ProductId = item.ProductId
+	promotionItem.ProductSkuId = item.ProductSkuId
+	promotionItem.MemberId = item.MemberId
+	promotionItem.Quantity = item.Quantity
+	promotionItem.Price = item.Price
+	promotionItem.ProductPic = item.ProductPic
+	promotionItem.ProductName = item.ProductName
+	promotionItem.ProductSubTitle = item.ProductSubTitle
+	promotionItem.ProductSkuCode = item.ProductSkuCode
+	promotionItem.MemberNickname = item.MemberNickname
+	promotionItem.CreateDate = item.CreateDate
+	promotionItem.ModifyDate = item.ModifyDate
+	promotionItem.DeleteStatus = item.DeleteStatus
+	promotionItem.ProductCategoryId = item.ProductCategoryId
+	promotionItem.ProductBrand = item.ProductBrand
+	promotionItem.ProductSn = item.ProductSn
+	promotionItem.ProductAttr = item.ProductAttr
+	//返回
 	return promotionItem
 }
 
@@ -452,6 +532,7 @@ func getLadderPromotionMessage(ladder cart.PmsProductLadder) string {
 
 // 对没满足优惠条件的商品进行处理
 func handleNoReduce(cartPromotionItemList []*cart.CartPromotionItem, itemList []cart.OmsCartItem, promotionProduct cart.PromotionProduct) []*cart.CartPromotionItem {
+
 	for _, item := range itemList {
 		cartPromotionItem := copyFromOmsCartItem(item)
 		cartPromotionItem.PromotionMessage = "无优惠"
@@ -464,7 +545,8 @@ func handleNoReduce(cartPromotionItemList []*cart.CartPromotionItem, itemList []
 		cartPromotionItem.Growth = promotionProduct.Product.GiftGrowth
 		cartPromotionItemList = append(cartPromotionItemList, &cartPromotionItem)
 	}
-	global.Logger.Infof("cartPromotionItemList的长度为:%d", len(cartPromotionItemList))
+	global.Logger.Infof("打印一下每次执行handleNoReduce时输入的itemList的长度：%d，以及此时返回的cartPromotionItemList的长度为：%d", len(itemList), len(cartPromotionItemList))
+
 	return cartPromotionItemList
 }
 

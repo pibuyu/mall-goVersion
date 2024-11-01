@@ -12,6 +12,6 @@ type DeleteReadHistoryReqStruct struct {
 	Ids []int64 `json:"ids"`
 }
 type ListReadHistoryReqStruct struct {
-	PageNum  int64 `json:"pageNum"`
-	PageSize int64 `json:"pageSize"`
+	PageNum  int64 `form:"pageNum"`
+	PageSize int64 `form:"pageSize"`
 }

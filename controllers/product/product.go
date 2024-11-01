@@ -18,7 +18,9 @@ func (c *ProductController) Detail(ctx *gin.Context) {
 	var rec receive.DetailReqStruct
 	// 获取路径中的productId参数,这里的参数是以路径的形式传递过来的
 	productIdStr := ctx.Param("productId")
+
 	productId, err := strconv.ParseInt(productIdStr, 10, 64) // 转换为整数
+	//global.Logger.Infof("detail请求传递过来的参数为:%v", productId)
 	if err != nil {
 		c.Response(ctx, "获取productId参数失败", nil, err)
 		return

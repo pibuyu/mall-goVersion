@@ -7,16 +7,17 @@ import (
 	receive "gomall/interaction/receive/productCollection"
 	"gomall/models/home"
 	productCollectionModels "gomall/models/productCollection"
+	"strconv"
 	"time"
 )
 
 func Add(data *receive.AddReqStruct) (count int, err error) {
 	//将data的数据转换为productCollection对象
 	productCollection := &productCollectionModels.MemberProductCollection{
-		MemberId:        data.MemberId,
+		MemberID:        data.MemberId,
 		MemberNickname:  data.MemberNickname,
 		MemberIcon:      data.MemberIcon,
-		ProductId:       data.ProductId,
+		ProductID:       data.ProductId,
 		ProductName:     data.ProductName,
 		ProductPic:      data.ProductPic,
 		ProductPrice:    data.ProductPrice,
@@ -45,7 +46,7 @@ func Add(data *receive.AddReqStruct) (count int, err error) {
 		}
 		productCollection.ProductName = product.Name
 		productCollection.ProductSubTitle = product.SubTitle
-		productCollection.ProductPrice = product.Price
+		productCollection.ProductPrice = strconv.FormatFloat(float64(product.Price), 'f', -1, 32)
 		productCollection.ProductPic = product.Pic
 		//保存
 		if err = repo.Save(ctx, productCollection); err != nil {

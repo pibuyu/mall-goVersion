@@ -173,9 +173,9 @@ func GetSubjectListByCategoryId(data *homeReceive.GetSubjectListRequestStruct) (
 	return
 }
 
-func GetProductCateList(data *homeReceive.GetProductCateListRequestStruct) (results home.ProductCategoryList, err error) {
+func GetProductCateList(parentId int64) (results home.ProductCategoryList, err error) {
 	if err := global.Db.Model(&home.PmsProductCategory{}).Where("show_status = ?", 1).
-		Where("parent_id = ?", data.ParentId).Order("sort desc").Find(&results).Error; err != nil {
+		Where("parent_id = ?", parentId).Order("sort desc").Find(&results).Error; err != nil {
 		return nil, errors.New("查询PmsProductCategory表出错:" + err.Error())
 	}
 	return

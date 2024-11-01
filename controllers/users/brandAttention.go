@@ -5,8 +5,10 @@ import (
 	controller "gomall/controllers"
 	receive "gomall/interaction/receive/brandAttention"
 	"gomall/logic/brandAttention"
+	brandAttention2 "gomall/models/brandAttention"
 	"gomall/models/users"
 	"gomall/utils/jwt"
+	"gomall/utils/response"
 	"time"
 )
 
@@ -83,7 +85,7 @@ func (c *BrandAttentionController) Detail(ctx *gin.Context) {
 
 func (c *BrandAttentionController) List(ctx *gin.Context) {
 	var rec receive.ListReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err == nil {
+	if err := ctx.ShouldBind(&rec); err == nil {
 		memberIdFromCtx, err := jwt.GetMemberIdFromCtx(ctx)
 		if err != nil {
 			c.Response(ctx, "分页获取用户关注的品牌时，用户身份校验错误", 0, err)
@@ -93,6 +95,11 @@ func (c *BrandAttentionController) List(ctx *gin.Context) {
 			c.Response(ctx, "分页获取用户关注的品牌失败", nil, err)
 		}
 
-		c.Response(ctx, "分页获取用户关注的品牌成功", result, nil)
+		pageResult := response.ResetPage(result, int64(len(result)), rec.PageNum, rec.PageSize)
+		// 确保 pageResult.List 为一个空数组而不是 nil,不然没有浏览记录的时候前端会一直转圈圈
+		if pageResult.List == nil {
+			pageResult.List = []brandAttention2.MemberBrandAttention{}
+		}
+		c.Response(ctx, "分页获取用户关注的品牌成功", pageResult, nil)
 	}
 }

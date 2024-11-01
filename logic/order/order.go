@@ -22,23 +22,25 @@ import (
 )
 
 // Detail 根据订单id获取订单详情
-func Detail(data *receive.DetailReqStruct) (result *order.OmsOrderDetail, err error) {
+func Detail(orderId int64) (result *order.OmsOrderDetail, err error) {
 	omsOrder := &order.OmsOrder{}
 	if err = global.Db.Model(&order.OmsOrder{}).
-		Where("id = ?", data.OrderId).Find(&omsOrder).Error; err != nil {
+		Where("id = ?", orderId).Find(&omsOrder).Error; err != nil {
 		return nil, errors.New("查询订单详情时，获取omsOrder出错:" + err.Error())
 	}
 
 	//根据orderId再去oms_order_item表里查询出OmsOrderItem列表
 	orderItemList := make([]order.OmsOrderItem, 0)
 	if err = global.Db.Model(&order.OmsOrderItem{}).
-		Where("order_id = ?", data.OrderId).Find(&orderItemList).Error; err != nil {
+		Where("order_id = ?", orderId).Find(&orderItemList).Error; err != nil {
 		return nil, errors.New("查询订单详情时，获取orderItemList出错:" + err.Error())
 	}
 	//然后可以构造omsOrderDetail对象并返回了
 	orderDetail := &order.OmsOrderDetail{
-		Order:         *omsOrder,
 		OrderItemList: orderItemList,
+	}
+	if err := copyProperties(omsOrder, orderDetail); err != nil {
+		return nil, errors.New("字段赋值错误:" + err.Error())
 	}
 	return orderDetail, nil
 }
@@ -178,6 +180,7 @@ func DeleteOrder(ctx *gin.Context, rec *receive.DeleteOrderReqStruct) (err error
 	}
 }
 
+// todo:还剩下几个需要改动的点：couponHistoryDetailList里的coupon的字段有点多了，可改可不该；integrationConsumeSetting还不对；最终的payAmount不对，主要是因为promotionAmount没算对
 func GenerateConfirmOrder(cartIds []int64, ctx *gin.Context) (result order.ConfirmOrderResult, err error) {
 	//1.获取当前用户的购物车信息
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
@@ -197,13 +200,14 @@ func GenerateConfirmOrder(cartIds []int64, ctx *gin.Context) (result order.Confi
 		return order.ConfirmOrderResult{}, errors.New("获取用户收货地址出错:" + err.Error())
 	}
 	result.MemberReceiveAddressList = memberReceiveAddressList
-	//获取用户可用优惠券列表
-
+	//3.获取用户可用优惠券列表
+	//todo:couponHistoryDetailList的结构还有问题
 	couponHistoryDetailList, err := ListCart(cartPromotionItemList, 1, memberId)
 	if err != nil {
 		return order.ConfirmOrderResult{}, errors.New("获取用户可用优惠券列表出错:" + err.Error())
 	}
 	result.CouponHistoryDetailList = couponHistoryDetailList
+	//4.补充其他的信息
 	//获取用户积分
 	result.MemberIntegration = user.Integration
 	//获取积分使用规则
@@ -217,16 +221,18 @@ func GenerateConfirmOrder(cartIds []int64, ctx *gin.Context) (result order.Confi
 
 // 根据购物车信息获取可用优惠券
 func ListCart(cartItemList cart.CartPromotionItemList, couponType int, memberId int64) (result []coupon.SmsCouponHistoryDetail, err error) {
+	//获取当前用户的信息
 	user := &users.User{}
 	if err := user.GetMemberById(memberId); err != nil {
 		return nil, errors.New("listCart时，查询用户信息failed:" + err.Error())
 	}
-	//获取该用户所有优惠券
+	//1.获取该用户所有优惠券
 	allList, err := getDetailList(memberId)
 	if err != nil {
 		return nil, errors.New("获取用户的优惠券failed:" + err.Error())
 	}
-	//根据优惠券使用类型判断优惠券是否可用
+
+	//2.根据优惠券使用类型判断优惠券是否可用
 	enableList := make([]coupon.SmsCouponHistoryDetail, 0)
 	disableList := make([]coupon.SmsCouponHistoryDetail, 0)
 	for _, couponHistoryDetail := range allList {
@@ -276,7 +282,6 @@ func ListCart(cartItemList cart.CartPromotionItemList, couponType int, memberId 
 	} else {
 		return disableList, nil
 	}
-
 }
 
 // 获取优惠券历史详情
@@ -291,6 +296,16 @@ func getDetailList(memberId int64) (result []coupon.SmsCouponHistoryDetail, err 
 	result = make([]coupon.SmsCouponHistoryDetail, 0, len(couponHistories))
 	for _, history := range couponHistories {
 		var detail coupon.SmsCouponHistoryDetail
+		detail.ID = history.ID
+		detail.CouponID = history.ID
+		detail.MemberID = history.MemberID
+		detail.CouponCode = history.CouponCode
+		detail.MemberNickname = history.MemberNickname
+		detail.GetType = history.GetType
+		detail.CreateTime = history.CreateTime
+		detail.UseStatus = history.UseStatus
+		detail.OrderID = history.OrderID
+		detail.OrderSn = history.OrderSn
 		detail.Coupon = coupon.SmsCoupon{}
 		//查询优惠券关联的商品信息
 		if err = global.Db.Table("sms_coupon").
@@ -324,18 +339,21 @@ func getDetailList(memberId int64) (result []coupon.SmsCouponHistoryDetail, err 
 	//return
 }
 
+// 计算购物车商品的总价
 func calcTotalAmount(cartItemList cart.CartPromotionItemList) (result float32) {
 	for _, item := range cartItemList {
-		realPrice := item.CartItem.Price - item.ReduceAmount
-		result += realPrice * float32(item.CartItem.Quantity)
+		realPrice := item.Price - item.ReduceAmount
+		result += realPrice * float32(item.Quantity)
 	}
 	return result
 }
+
+// 计算指定分类商品的总价
 func calcTotalAmountByproductCategoryId(cartItemList cart.CartPromotionItemList, productCategoryIds []int64) (result float32) {
 	for _, item := range cartItemList {
-		if contain(item.CartItem.ProductCategoryId, productCategoryIds) {
-			realPrice := item.CartItem.Price - item.ReduceAmount
-			result += realPrice * float32(item.CartItem.Quantity)
+		if contain(item.ProductCategoryId, productCategoryIds) {
+			realPrice := item.Price - item.ReduceAmount
+			result += realPrice * float32(item.Quantity)
 		}
 	}
 	return
@@ -350,11 +368,12 @@ func contain(id int64, ids []int64) bool {
 	return false
 }
 
+// 计算指定商品的总价
 func calcTotalAmountByProductId(cartItemList cart.CartPromotionItemList, productIds []int64) (result float32) {
 	for _, item := range cartItemList {
-		if contain(item.CartItem.ProductId, productIds) {
-			realPrice := item.CartItem.Price - item.ReduceAmount
-			result += realPrice * float32(item.CartItem.Quantity)
+		if contain(item.ProductId, productIds) {
+			realPrice := item.Price - item.ReduceAmount
+			result += realPrice * float32(item.Quantity)
 		}
 	}
 	return
@@ -370,8 +389,8 @@ func calcCartAmount(cartPromotionItemList cart.CartPromotionItemList) (result or
 	totalAmount := float32(0)
 	promotionAmount := float32(0)
 	for _, cartPromotionItem := range cartPromotionItemList {
-		totalAmount += cartPromotionItem.CartItem.Price * float32(cartPromotionItem.CartItem.Quantity)
-		promotionAmount += cartPromotionItem.ReduceAmount * float32(cartPromotionItem.CartItem.Quantity)
+		totalAmount += cartPromotionItem.Price * float32(cartPromotionItem.Quantity)
+		promotionAmount += cartPromotionItem.ReduceAmount * float32(cartPromotionItem.Quantity)
 	}
 	calcAmount.TotalAmount = totalAmount
 	calcAmount.PromotionAmount = promotionAmount
@@ -397,22 +416,21 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	if err != nil {
 		return nil, errors.New("获取购物车及优惠信息failed:" + err.Error())
 	}
-	//global.Logger.Infof("获取到的cartPromotionItemList为:%v", cartPromotionItemList)
 
 	for _, cartPromotionItem := range cartPromotionItemList {
 		//生成下单商品信息
 		orderItem := &order.OmsOrderItem{
-			ProductId:         cartPromotionItem.CartItem.ProductId,
-			ProductName:       cartPromotionItem.CartItem.ProductName,
-			ProductPic:        cartPromotionItem.CartItem.ProductPic,
-			ProductAttr:       cartPromotionItem.CartItem.ProductAttr,
-			ProductBrand:      cartPromotionItem.CartItem.ProductBrand,
-			ProductSn:         cartPromotionItem.CartItem.ProductSn,
-			ProductPrice:      cartPromotionItem.CartItem.Price,
-			ProductQuantity:   cartPromotionItem.CartItem.Quantity,
-			ProductSkuId:      cartPromotionItem.CartItem.ProductSkuId,
-			ProductSkuCode:    cartPromotionItem.CartItem.ProductSkuCode,
-			ProductCategoryId: cartPromotionItem.CartItem.ProductCategoryId,
+			ProductId:         cartPromotionItem.ProductId,
+			ProductName:       cartPromotionItem.ProductName,
+			ProductPic:        cartPromotionItem.ProductPic,
+			ProductAttr:       cartPromotionItem.ProductAttr,
+			ProductBrand:      cartPromotionItem.ProductBrand,
+			ProductSn:         cartPromotionItem.ProductSn,
+			ProductPrice:      cartPromotionItem.Price,
+			ProductQuantity:   cartPromotionItem.Quantity,
+			ProductSkuId:      cartPromotionItem.ProductSkuId,
+			ProductSkuCode:    cartPromotionItem.ProductSkuCode,
+			ProductCategoryId: cartPromotionItem.ProductCategoryId,
 			PromotionAmount:   cartPromotionItem.ReduceAmount,
 			PromotionName:     cartPromotionItem.PromotionMessage,
 			GiftIntegration:   cartPromotionItem.Integration,
@@ -420,7 +438,6 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 		}
 		orderItemList = append(orderItemList, *orderItem)
 	}
-	//global.Logger.Infof("打印orderItemList为:%v", orderItemList)
 
 	//判断购物车中商品是否都有库存
 	if !hasStock(cartPromotionItemList) {
@@ -463,7 +480,6 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 		}
 	}
 	//计算order_item的实付金额
-
 	pointerOrderItemList := make([]*order.OmsOrderItem, len(orderItemList))
 	for index := range orderItemList {
 		pointerOrderItemList[index] = &orderItemList[index]
@@ -471,7 +487,6 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	if err := handleRealAmount(pointerOrderItemList); err != nil {
 		return nil, errors.New("计算订单的实际支付金额出错:" + err.Error())
 	}
-	//global.Logger.Infof("打印handleRealAmount处理后的orderItemList为:%v", orderItemList)
 	//进行库存锁定
 	//todo:This is a special comment.
 	// 这个地方有点坑爹：make([]*cart.CartPromotionItem, 0)初始化内存时，指定长度应该为0。如果指定长度为len(cartPromotionItemList)：
@@ -484,7 +499,6 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	if err := lockStock(pointerCartPromotionItemList); err != nil {
 		return nil, err
 	}
-	//global.Logger.Infof("打印后lockStock的cartPromotionItemList：%v", cartPromotionItemList)
 	//根据商品合计、运费、活动优惠、优惠券、积分计算应付金额
 	order := &order.OmsOrder{
 		DiscountAmount:  float32(0),
@@ -564,7 +578,6 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	if err := insertOrderItemList(orderItemList); err != nil {
 		return nil, err
 	}
-	//global.Logger.Infof("insertOrderItemList后的orderItemList为:%v", orderItemList)
 	//如使用优惠券更新优惠券使用状态
 	if data.CouponId != 0 {
 		if err := updateCouponStatus(data.CouponId, currentMember.Id, 1); err != nil {
@@ -594,7 +607,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 
 func hasStock(cartPromotionItemList cart.CartPromotionItemList) bool {
 	for _, cartPromotionItem := range cartPromotionItemList {
-		if cartPromotionItem.RealStock <= 0 || cartPromotionItem.RealStock < cartPromotionItem.CartItem.Quantity {
+		if cartPromotionItem.RealStock <= 0 || cartPromotionItem.RealStock < cartPromotionItem.Quantity {
 			return false
 		}
 	}
@@ -701,9 +714,9 @@ func handleRealAmount(orderItemList []*order.OmsOrderItem) (err error) {
 func lockStock(cartPromotionItemList []*cart.CartPromotionItem) (err error) {
 	for _, cartPromotionItem := range cartPromotionItemList {
 		skuStock := &cart.PmsSkuStock{}
-		skuStock.GetSkuStockById(cartPromotionItem.CartItem.ProductSkuId)
-		skuStock.LockStock += cartPromotionItem.CartItem.Quantity
-		if err := lockStockBySkuId(cartPromotionItem.CartItem.ProductSkuId, cartPromotionItem.CartItem.Quantity); err != nil {
+		skuStock.GetSkuStockById(cartPromotionItem.ProductSkuId)
+		skuStock.LockStock += cartPromotionItem.Quantity
+		if err := lockStockBySkuId(cartPromotionItem.ProductSkuId, cartPromotionItem.Quantity); err != nil {
 			return errors.New("锁定库存出错:" + err.Error())
 		}
 	}
@@ -816,7 +829,7 @@ func insertOrderItemList(orderItemList []orderModel.OmsOrderItem) error {
 func deleteCartItemList(cartPromotionItemList []cart.CartPromotionItem, currentMember users.User) error {
 	var ids []int64
 	for _, cartPromotionItem := range cartPromotionItemList {
-		ids = append(ids, cartPromotionItem.CartItem.Id)
+		ids = append(ids, cartPromotionItem.Id)
 	}
 	if err := global.Db.Model(&cart.OmsCartItem{}).
 		Where("id in ?", ids).Where("member_id = ?", currentMember.Id).
@@ -875,12 +888,105 @@ func getCouponOrderItemByRelation(couponHistoryDetail coupon.SmsCouponHistoryDet
 }
 
 // List 按状态分页获取用户订单列表
-func List(data *receive.ListReqStruct, memberId int64) (result []orderModel.OmsOrder, err error) {
-	if err = global.Db.Model(&orderModel.OmsOrder{}).Where("status = ?", data.Status).Where("member_id", memberId).
-		Offset((data.PageNum - 1) * data.PageSize).Limit(data.PageSize).Find(&result).Error; err != nil {
+// todo:怎么缺失了这么多数据就直接返回了？？？？
+func List(data *receive.ListReqStruct, memberId int64) (result []orderModel.OmsOrderDetail, err error) {
+	//result的orderList部分
+	var orderList []*orderModel.OmsOrder
+	query := global.Db.Model(&orderModel.OmsOrder{}).
+		Where("member_id", memberId).Where("delete_status = ?", 0)
+	if data.Status != -1 {
+		query = query.Where("status = ?", data.Status)
+	}
+	//todo:This is a special comment.
+	// order需要放在find之前，否则不生效。
+	if err = query.Offset((data.PageNum - 1) * data.PageSize).
+		Limit(data.PageSize).
+		Order("create_time desc").
+		Find(&orderList).
+		Error; err != nil {
 		return nil, errors.New("分页查询订单列表failed:" + err.Error())
 	}
-	return
+
+	//设置数据信息
+	orderIds := make([]int64, 0) //收集所有order的ids
+	for _, item := range orderList {
+		orderIds = append(orderIds, item.ID)
+	}
+
+	orderItemList := make([]orderModel.OmsOrderItem, 0)
+	if err = global.Db.Model(&orderModel.OmsOrderItem{}).Where("order_id in ?", orderIds).
+		Find(&orderItemList).Error; err != nil {
+		return nil, errors.New("根据orderIds查询OmsOrderItem表失败:" + err.Error())
+	}
+
+	var orderDetailList []orderModel.OmsOrderDetail
+	for _, item := range orderList {
+		orderDetail := &orderModel.OmsOrderDetail{}
+		//这里需要将order的所有字段全部赋值给orderDetail
+		if err := copyProperties(item, orderDetail); err != nil {
+			return nil, errors.New("赋值失败")
+		}
+
+		//然后在orderItemList里找到和当前orderDetail对应的几个item
+		for _, item2 := range orderItemList {
+			if item2.OrderId == item.ID {
+				orderDetail.OrderItemList = append(orderDetail.OrderItemList, item2)
+			}
+		}
+		orderDetailList = append(orderDetailList, *orderDetail)
+	}
+	return orderDetailList, nil
+}
+
+// copyProperties 将源结构体的字段值复制到目标结构体
+func copyProperties(item *orderModel.OmsOrder, detail *orderModel.OmsOrderDetail) error {
+	// 手动赋值字段
+	detail.ID = item.ID
+	detail.MemberID = item.MemberID
+	detail.CouponID = item.CouponID
+	detail.OrderSn = item.OrderSn
+	detail.CreateTime = item.CreateTime
+	detail.MemberUsername = item.MemberUsername
+	detail.TotalAmount = item.TotalAmount
+	detail.PayAmount = item.PayAmount
+	detail.FreightAmount = item.FreightAmount
+	detail.PromotionAmount = item.PromotionAmount
+	detail.IntegrationAmount = item.IntegrationAmount
+	detail.CouponAmount = item.CouponAmount
+	detail.DiscountAmount = item.DiscountAmount
+	detail.PayType = item.PayType
+	detail.SourceType = item.SourceType
+	detail.Status = item.Status
+	detail.OrderType = item.OrderType
+	detail.DeliveryCompany = item.DeliveryCompany
+	detail.DeliverySn = item.DeliverySn
+	detail.AutoConfirmDay = item.AutoConfirmDay
+	detail.Integration = item.Integration
+	detail.Growth = item.Growth
+	detail.PromotionInfo = item.PromotionInfo
+	detail.BillType = item.BillType
+	detail.BillHeader = item.BillHeader
+	detail.BillContent = item.BillContent
+	detail.BillReceiverPhone = item.BillReceiverPhone
+	detail.BillReceiverEmail = item.BillReceiverEmail
+	detail.ReceiverName = item.ReceiverName
+	detail.ReceiverPhone = item.ReceiverPhone
+	detail.ReceiverPostCode = item.ReceiverPostCode
+	detail.ReceiverProvince = item.ReceiverProvince
+	detail.ReceiverCity = item.ReceiverCity
+	detail.ReceiverRegion = item.ReceiverRegion
+	detail.ReceiverDetailAddress = item.ReceiverDetailAddress
+	detail.Note = item.Note
+	detail.ConfirmStatus = item.ConfirmStatus
+	detail.DeleteStatus = item.DeleteStatus
+	detail.UseIntegration = item.UseIntegration
+	detail.PaymentTime = item.PaymentTime
+	detail.DeliveryTime = item.DeliveryTime
+	detail.ReceiveTime = item.ReceiveTime
+	detail.CommentTime = item.CommentTime
+	detail.ModifyTime = item.ModifyTime
+
+	return nil
 }
 
 func PaySuccess(data *receive.PaySuccessReqStruct) (count int, err error) {
@@ -902,7 +1008,7 @@ func PaySuccess(data *receive.PaySuccessReqStruct) (count int, err error) {
 	if err != nil {
 		return 0, err
 	}
-	if orderDetail.Order.ID == 0 {
+	if orderDetail.ID == 0 {
 		return 0, errors.New("订单详情为空")
 	}
 	totalCount := 0
@@ -926,7 +1032,9 @@ func getDetail(orderId int64) (result orderModel.OmsOrderDetail, err error) {
 	if err = global.Db.Model(&orderModel.OmsOrderItem{}).Where("order_id", orderId).First(&orderItem).Error; err != nil {
 		return orderModel.OmsOrderDetail{}, errors.New("getDetail时，查询OmsOrderItem表failed:" + err.Error())
 	}
-	result.Order = *oneOrder
+	if err := copyProperties(oneOrder, &result); err != nil {
+		return orderModel.OmsOrderDetail{}, errors.New("字段赋值错误:" + err.Error())
+	}
 	result.OrderItemList = append(result.OrderItemList, *orderItem)
 
 	return
@@ -952,17 +1060,14 @@ func CancelTimeOutOrder(memberId int64) (count int, err error) {
 	}
 	//查询超时、未支付的订单及订单详情
 	timeOutOrders, err := getTimeOutOrders(orderSetting.NormalOrderOvertime)
-	global.Logger.Infof("查到的超时订单数:%d", len(timeOutOrders))
-	for _, timeoutOrder := range timeOutOrders {
-		global.Logger.Infof("超时订单信息:%v", timeoutOrder)
-	}
+
 	if err != nil {
 		return 0, err
 	}
 	//修改订单状态为交易取消
 	var ids []int64
 	for _, timeOutOrder := range timeOutOrders {
-		ids = append(ids, timeOutOrder.Order.ID)
+		ids = append(ids, timeOutOrder.ID)
 	}
 	if err := updateOrderStatus(ids, 4); err != nil {
 		return 0, err
@@ -973,17 +1078,17 @@ func CancelTimeOutOrder(memberId int64) (count int, err error) {
 			return 0, errors.New("解除订单商品的库存锁定failed:" + err.Error())
 		}
 		//修改优惠券使用状态
-		if err := updateCouponStatus(item.Order.CouponID, memberId, 0); err != nil {
+		if err := updateCouponStatus(item.CouponID, memberId, 0); err != nil {
 			return 0, err
 		}
 		//返还使用积分
-		if item.Order.UseIntegration != 0 {
+		if item.UseIntegration != 0 {
 			//找到这个用户，更新其积分
 			curUser := &users.User{}
 			if err := curUser.GetMemberById(memberId); err != nil {
 				return 0, errors.New("查询用户信息出错:" + err.Error())
 			}
-			curUser.Integration += item.Order.UseIntegration
+			curUser.Integration += item.UseIntegration
 			if err := curUser.Update(); err != nil {
 				return 0, errors.New("返还用户积分出错:" + err.Error())
 			}
@@ -1018,13 +1123,16 @@ func getTimeOutOrders(normalOverTime int) (result []orderModel.OmsOrderDetail, e
 	//整合为DTO类型并返回
 	result = make([]orderModel.OmsOrderDetail, 0, len(orders))
 	for _, oneOrder := range orders {
-		oneOrderDetail := orderModel.OmsOrderDetail{Order: oneOrder}
+		oneOrderDetail := &orderModel.OmsOrderDetail{}
+		if err := copyProperties(&oneOrder, oneOrderDetail); err != nil {
+			return nil, errors.New("字段赋值错误:" + err.Error())
+		}
 		for _, oneOrderItem := range orderItems {
 			if oneOrderItem.OrderId == oneOrder.ID {
 				oneOrderDetail.OrderItemList = append(oneOrderDetail.OrderItemList, oneOrderItem)
 			}
 		}
-		result = append(result, oneOrderDetail)
+		result = append(result, *oneOrderDetail)
 	}
 	return result, nil
 }

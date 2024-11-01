@@ -12,6 +12,7 @@ func (r *ProductCollectionRouter) InitProductCollectionRouter(Router *gin.Router
 	productCollectionRouter := Router.Group("/member/productCollection").Use()
 	{
 		productCollectionController := new(users.ProductCollectionController)
+		//todo:这里也全都是操作mongodb
 		productCollectionRouter.POST("/add", productCollectionController.Add)
 		productCollectionRouter.POST("/clear", productCollectionController.Clear)
 		productCollectionRouter.POST("/delete", productCollectionController.Delete)

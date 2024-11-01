@@ -28,10 +28,12 @@ type GenerateOrderReqStruct struct {
 	UseIntegration         int     `json:"useIntegration"`
 }
 
+// 该请求形如：http://localhost:9090/order/list?status=-1&pageNum=1&pageSize=5，需要在请求的结构体中用form注释
 type ListReqStruct struct {
-	PageNum  int `json:"pageNum"`
-	PageSize int `json:"pageSize"`
-	Status   int `json:"status" binding:"required"`
+	PageNum  int `form:"pageNum"`
+	PageSize int `form:"pageSize"`
+	//传递过来的status=-1，不能用binding=required注释
+	Status int `form:"status"`
 }
 
 type PaySuccessReqStruct struct {

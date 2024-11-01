@@ -7,6 +7,7 @@ import (
 	receive "gomall/interaction/receive/address"
 	addressLogic "gomall/logic/address"
 	"gomall/utils/jwt"
+	"strconv"
 )
 
 type AddressController struct {
@@ -15,15 +16,16 @@ type AddressController struct {
 
 // 获取收货地址详情
 func (c *AddressController) GetAddressById(ctx *gin.Context) {
-	var rec receive.GetAddressByIdReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
-		global.Logger.Errorf("根据id获取地址时，绑定参数错误：%v", err)
-		c.Response(ctx, "根据id获取地址时，绑定参数错误", nil, err)
-		return
-	}
+	//var rec receive.GetAddressByIdReqStruct
+	//if err := ctx.ShouldBindJSON(&rec); err != nil {
+	//	global.Logger.Errorf("根据id获取地址时，绑定参数错误：%v", err)
+	//	c.Response(ctx, "根据id获取地址时，绑定参数错误", nil, err)
+	//	return
+	//}
+	addressId, _ := strconv.ParseInt(ctx.Param("addressId"), 10, 64)
 
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
-	result, err := addressLogic.GetAddressById(rec.Id, memberId)
+	result, err := addressLogic.GetAddressById(addressId, memberId)
 	if err != nil {
 		c.Response(ctx, "根据id获取地址时，查表错误", nil, err)
 		return
@@ -51,14 +53,15 @@ func (c *AddressController) AddAddress(ctx *gin.Context) {
 }
 
 func (c *AddressController) DeleteAddress(ctx *gin.Context) {
-	var rec receive.DeleteAddressReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
-		global.Logger.Errorf("删除地址时，绑定参数错误：%v", err)
-		c.Response(ctx, "删除地址时，绑定参数错误", nil, err)
-		return
-	}
+	//var rec receive.DeleteAddressReqStruct
+	//if err := ctx.ShouldBindJSON(&rec); err != nil {
+	//	global.Logger.Errorf("删除地址时，绑定参数错误：%v", err)
+	//	c.Response(ctx, "删除地址时，绑定参数错误", nil, err)
+	//	return
+	//}
+	addressId, _ := strconv.ParseInt(ctx.Param("addressId"), 10, 64)
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
-	if err := addressLogic.DeleteAddress(rec.Id, memberId); err != nil {
+	if err := addressLogic.DeleteAddress(addressId, memberId); err != nil {
 		c.Response(ctx, "删除地址时，删除数据库表项出错", 0, err)
 		return
 	}
@@ -66,7 +69,8 @@ func (c *AddressController) DeleteAddress(ctx *gin.Context) {
 	c.Response(ctx, "删除地址成功", 1, nil)
 }
 func (c *AddressController) List(ctx *gin.Context) {
-	result, err := addressLogic.List()
+	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
+	result, err := addressLogic.List(memberId)
 	if err != nil {
 		c.Response(ctx, "获取地址列表failed:", nil, err)
 	}
