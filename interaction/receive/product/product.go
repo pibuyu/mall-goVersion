@@ -7,8 +7,8 @@ type DetailReqStruct struct {
 type SearchReqStruct struct {
 	BrandId           int64  `json:"brandId"`
 	Keyword           string `json:"keyword"`
-	PageNum           int    `json:"pageNum"`
-	PageSize          int    `json:"pageSize"`
-	ProductCategoryId int64  `json:"productCategoryId"`
-	Sort              int    `json:"sort"`
+	PageNum           int    `form:"pageNum"`
+	PageSize          int    `form:"pageSize"`
+	ProductCategoryId int64  `form:"productCategoryId"`
+	Sort              int    `form:"sort"`
 }

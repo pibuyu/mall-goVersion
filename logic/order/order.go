@@ -180,7 +180,7 @@ func DeleteOrder(ctx *gin.Context, rec *receive.DeleteOrderReqStruct) (err error
 	}
 }
 
-// todo:还剩下几个需要改动的点：couponHistoryDetailList里的coupon的字段有点多了，可改可不该；integrationConsumeSetting还不对；最终的payAmount不对，主要是因为promotionAmount没算对
+// todo:还剩下几个需要改动的点：couponHistoryDetailList里的coupon的字段有点多了，可改可不改；integrationConsumeSetting还不对；最终的payAmount不对，主要是因为promotionAmount没算对
 func GenerateConfirmOrder(cartIds []int64, ctx *gin.Context) (result order.ConfirmOrderResult, err error) {
 	//1.获取当前用户的购物车信息
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
@@ -211,9 +211,11 @@ func GenerateConfirmOrder(cartIds []int64, ctx *gin.Context) (result order.Confi
 	//获取用户积分
 	result.MemberIntegration = user.Integration
 	//获取积分使用规则
-	integrationConsumeSetting := getIntegrationConsumeSettingById(1)
-	result.IntegrationConsumeSetting = integrationConsumeSetting
+	integrationConsumeSetting := &integration.UmsIntegrationConsumeSetting{}
+	integrationConsumeSetting.GetById(1)
+	result.IntegrationConsumeSetting = *integrationConsumeSetting
 	//计算总金额、活动优惠、应付金额
+	//todo:这里只是利用了每个calcAmount的totalAmount-promotionAmount，因此是上面对于cartPromotionItemList中每个item的promotionAmount计算出了问题
 	calcAmount := calcCartAmount(cartPromotionItemList)
 	result.CalcAmount = calcAmount
 	return
@@ -384,6 +386,7 @@ func getIntegrationConsumeSettingById(id int64) (result integration.UmsIntegrati
 	return
 }
 
+// 计算购物车中商品的价格
 func calcCartAmount(cartPromotionItemList cart.CartPromotionItemList) (result order.CalcAmount) {
 	calcAmount := &order.CalcAmount{}
 	totalAmount := float32(0)

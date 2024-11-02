@@ -69,7 +69,7 @@ func (c *BrandAttentionController) Delete(ctx *gin.Context) {
 
 func (c *BrandAttentionController) Detail(ctx *gin.Context) {
 	var rec receive.DetailReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err == nil {
+	if err := ctx.ShouldBind(&rec); err == nil {
 		memberIdFromCtx, err := jwt.GetMemberIdFromCtx(ctx)
 		if err != nil {
 			c.Response(ctx, "获取用户关注品牌的详情时，用户身份校验错误", 0, err)

@@ -23,11 +23,11 @@ type ConfirmOrderResult struct {
 
 type CalcAmount struct {
 	// TotalAmount 订单商品总金额
-	TotalAmount float32 `json:"totalAmount" gorm:"column:total_amount"`
+	TotalAmount float32 `json:"totalAmount"`
 	// FreightAmount 运费
-	FreightAmount float32 `json:"freightAmount" gorm:"column:freight_amount"`
+	FreightAmount float32 `json:"freightAmount"`
 	// PromotionAmount 活动优惠金额
-	PromotionAmount float32 `json:"promotionAmount" gorm:"column:promotion_amount"`
+	PromotionAmount float32 `json:"promotionAmount"`
 	// PayAmount 应付金额
-	PayAmount float32 `json:"payAmount" gorm:"column:pay_amount"`
+	PayAmount float32 `json:"payAmount"`
 }

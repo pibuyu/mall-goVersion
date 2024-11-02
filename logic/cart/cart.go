@@ -170,8 +170,6 @@ func CartListPromotion(cartIds []int64, memberId int64) (results cart.CartPromot
 		}
 	}
 
-	//global.Logger.Infof("打印一下filteredItemList的长度：%d", len(filteredItemList))
-
 	//然后计算购物车促销信息
 	if len(filteredItemList) != 0 {
 		results, err = calcCartPromotion(filteredItemList)
@@ -192,16 +190,12 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 		return nil, err
 	}
 
-	//global.Logger.Infof("在计算优惠价格之前打印一下promotionProductList的长度:%d，以及productCartMap的长度：%d", len(promotionProductList), len(productCartMap))
-
-	//todo:下面这段到返回之前的逻辑有点问题，过来的长度为2，返回的长度怎么为3了呢？？？
 	//3.根据商品促销类型计算商品促销优惠价格
 	cartPromotionItemList = make([]cart.CartPromotionItem, 0)
 	for productId, itemList := range productCartMap {
 		//从promotionProductList找到productId=productId的那项
 		promotionProduct := getPromotionProductById(productId, promotionProductList)
 		promotionType := promotionProduct.Product.PromotionType
-		global.Logger.Infof("打印一下每一轮的promotionType=%d,以及promotionProduct的内容：%v", promotionType, promotionProduct)
 		//promotionType：0->没有促销使用原价;1->使用促销价；2->使用会员价；3->使用阶梯价格；4->使用满减价格；5->限时购
 		if promotionType == 1 {
 			for _, item := range itemList {
@@ -239,9 +233,6 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 				}
 			} else {
 				pointerCartPromotionItemList := make([]*cart.CartPromotionItem, 0)
-				for _, item := range cartPromotionItemList {
-					pointerCartPromotionItemList = append(pointerCartPromotionItemList, &item)
-				}
 
 				result := handleNoReduce(pointerCartPromotionItemList, itemList, promotionProduct)
 				for _, item := range result {
@@ -252,6 +243,7 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 			//todo:满减的逻辑还不对，小米的手机没有正确地满500-50
 			totalAmount := getCartItemAmount(itemList, promotionProductList)
 			fullReduction := getProductFullReduction(totalAmount, promotionProduct.ProductFullReduction)
+			global.Logger.Infof("计算得到的fullReduction为:%v", fullReduction)
 			if fullReduction != nil {
 				for _, item := range itemList {
 					cartPromotionItem := copyFromOmsCartItem(item)
@@ -260,7 +252,8 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 					//(商品原价/总价)*满减金额
 					skuStock := getOriginalPrice(promotionProduct, item.ProductSkuId)
 					originalPrice := skuStock.Price
-					reduceAmount := originalPrice / (totalAmount * fullReduction.ReducePrice)
+					//todo:This is a special comment.这里的计算公式不要搞错啦，之前写成了originalPrice / (totalAmount * fullReduction.ReducePrice),导致满减产品的优惠计算错误
+					reduceAmount := (originalPrice / totalAmount) * fullReduction.ReducePrice
 					cartPromotionItem.ReduceAmount = reduceAmount
 					cartPromotionItem.RealStock = skuStock.Stock - skuStock.LockStock
 					cartPromotionItem.Integration = promotionProduct.Product.GiftPoint
@@ -275,7 +268,6 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 				}
 			}
 		} else {
-			//cartPromotionItemList是空的，导致pointerCartPromotionItemList的长度也是0
 			pointerCartPromotionItemList := make([]*cart.CartPromotionItem, 0)
 			//for _, item := range cartPromotionItemList {
 			//	pointerCartPromotionItemList = append(pointerCartPromotionItemList, &item)
@@ -292,7 +284,7 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 }
 
 func getFullReductionPromotionMessage(fullReduction cart.PmsProductFullReduction) string {
-	return fmt.Sprintf("满减优惠：满%f元，减%f元", fullReduction.FullPrice, fullReduction.ReducePrice)
+	return fmt.Sprintf("满减优惠：满%.2f元，减%.2f元", fullReduction.FullPrice, fullReduction.ReducePrice)
 }
 
 func getProductFullReduction(totalAmount float32, fullReductionList []cart.PmsProductFullReduction) (result *cart.PmsProductFullReduction) {

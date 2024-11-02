@@ -88,6 +88,7 @@ func (c *OrderController) GenerateConfirmOrder(ctx *gin.Context) {
 
 }
 
+//todo:generateOrder计算出来的价格不对嗷
 func (c *OrderController) GenerateOrder(ctx *gin.Context) {
 	if rec, err := controller.ShouldBind(ctx, new(receive.GenerateOrderReqStruct)); err == nil {
 		oneOrder, err := order.GenerateOrder(rec, ctx)
@@ -122,11 +123,13 @@ func (c *OrderController) List(ctx *gin.Context) {
 // PaySuccess 用户支付成功的回调
 func (c *OrderController) PaySuccess(ctx *gin.Context) {
 	var rec receive.PaySuccessReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
-		global.Logger.Errorf("PaySuccess请求传入参绑定失败: %v", err)
-		c.Response(ctx, "请求参数错误", nil, err)
-		return
-	}
+	rec.OrderId, _ = strconv.ParseInt(ctx.PostForm("orderId"), 10, 64)
+	rec.PayType, _ = strconv.Atoi(ctx.PostForm("payType"))
+	//if err := ctx.ShouldBind(&rec); err != nil {
+	//	global.Logger.Errorf("PaySuccess请求传入参绑定失败: %v", err)
+	//	c.Response(ctx, "请求参数错误", nil, err)
+	//	return
+	//}
 
 	count, err := order.PaySuccess(&rec)
 	if err != nil {
@@ -138,15 +141,16 @@ func (c *OrderController) PaySuccess(ctx *gin.Context) {
 
 // CancelUserOrder 用户取消订单
 func (c *OrderController) CancelUserOrder(ctx *gin.Context) {
-	var rec receive.CancelUserOrderReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
-		global.Logger.Errorf("CancelUserOrder请求传入参绑定失败: %v", err)
-		c.Response(ctx, "请求参数错误", nil, err)
-		return
-	}
+	//var rec receive.CancelUserOrderReqStruct
+	//if err := ctx.ShouldBindJSON(&rec); err != nil {
+	//	global.Logger.Errorf("CancelUserOrder请求传入参绑定失败: %v", err)
+	//	c.Response(ctx, "请求参数错误", nil, err)
+	//	return
+	//}
+	orderId, _ := strconv.ParseInt(ctx.PostForm("orderId"), 10, 64)
 
 	newRec := &receive.CancelOrderReqStruct{
-		OrderId: rec.OrderId,
+		OrderId: orderId,
 	}
 	if err := order.CancelOrder(newRec); err != nil {
 		global.Logger.Error("用户主动取消订单出错:%v", err)

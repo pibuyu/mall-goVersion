@@ -19,7 +19,7 @@ type DeleteBrandAttentionReqStruct struct {
 }
 
 type DetailReqStruct struct {
-	BrandId int64 `json:"brandId"`
+	BrandId int64 `form:"brandId"`
 }
 
 type ListReqStruct struct {

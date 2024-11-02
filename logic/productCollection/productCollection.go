@@ -20,7 +20,7 @@ func Add(data *receive.AddReqStruct) (count int, err error) {
 		ProductID:       data.ProductId,
 		ProductName:     data.ProductName,
 		ProductPic:      data.ProductPic,
-		ProductPrice:    data.ProductPrice,
+		ProductPrice:    strconv.FormatFloat(float64(data.ProductPrice), 'f', -1, 32),
 		ProductSubTitle: data.ProductSubTitle,
 		CreateTime:      time.Now(),
 	}

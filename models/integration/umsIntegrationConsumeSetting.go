@@ -17,9 +17,9 @@ type UmsIntegrationConsumeSetting struct {
 }
 
 func (UmsIntegrationConsumeSetting) TableName() string {
-	return "integration_consume_setting"
+	return "ums_integration_consume_setting"
 }
 
-func (s *UmsIntegrationConsumeSetting) GetById(id int64) {
-	global.Db.Model(&UmsIntegrationConsumeSetting{}).Where("id = ?", id).First(&s)
+func (setting *UmsIntegrationConsumeSetting) GetById(id int64) {
+	global.Db.Model(&UmsIntegrationConsumeSetting{}).Where("id = ?", id).Find(&setting)
 }

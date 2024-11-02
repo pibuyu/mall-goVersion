@@ -29,6 +29,7 @@ func (c *HomeController) GetHomeContent(ctx *gin.Context) {
 			return
 		}
 		//3.获取秒杀信息
+		//TODO:homeFlashPromotion为空的时候，应该直接赋值nil就行
 		flashPromotion, err := home.GetHomeFlashPromotion()
 		if err != nil {
 			c.Response(ctx, "获取秒杀信息出错", nil, err)
@@ -102,7 +103,7 @@ func (c *HomeController) GetNewProductList(ctx *gin.Context) {
 // 分页获取推荐商品
 func (c *HomeController) GetRecommendProductList(ctx *gin.Context) {
 	var rec receive.GetRecommendProductListRequestStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
+	if err := ctx.ShouldBind(&rec); err != nil {
 		global.Logger.Errorf("GetRecommendProductList请求传入参绑定失败: %v", err)
 		c.Response(ctx, "请求参数错误", nil, err)
 		return

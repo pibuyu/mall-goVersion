@@ -4,11 +4,11 @@ type DetailReqStruct struct {
 	BrandId int64 `json:"brandId"`
 }
 type RecommendListReqStruct struct {
-	PageNum  int `json:"pageNum"`
-	PageSize int `json:"pageSize"`
+	PageNum  int `form:"pageNum"`
+	PageSize int `form:"pageSize"`
 }
 type ProductListReqStruct struct {
-	BrandId  int64 `json:"brandId"`
-	PageNum  int   `json:"pageNum"`
-	PageSize int   `json:"pageSize"`
+	BrandId  int64 `form:"brandId"`
+	PageNum  int   `form:"pageNum"`
+	PageSize int   `form:"pageSize"`
 }

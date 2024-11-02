@@ -19,8 +19,8 @@ type GetNewProductListRequestStruct struct {
 }
 
 type GetRecommendProductListRequestStruct struct {
-	PageNum  int `json:"pageNum" binding:"required"`
-	PageSize int `json:"pageSize" binding:"required"`
+	PageNum  int `form:"pageNum" binding:"required"`
+	PageSize int `form:"pageSize" binding:"required"`
 }
 
 type GetSubjectListRequestStruct struct {

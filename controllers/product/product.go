@@ -6,6 +6,7 @@ import (
 	"gomall/global"
 	receive "gomall/interaction/receive/product"
 	productLogic "gomall/logic/product"
+	"gomall/utils/response"
 	"strconv"
 )
 
@@ -45,15 +46,18 @@ func (c *ProductController) CategoryTreeList(ctx *gin.Context) {
 // Search 综合搜索、筛选、排序
 func (c *ProductController) Search(ctx *gin.Context) {
 	var rec receive.SearchReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
+	if err := ctx.ShouldBind(&rec); err != nil {
 		global.Logger.Errorf("综合搜索、筛选、排序请求传入参绑定失败: %v", err)
 		c.Response(ctx, "综合搜索、筛选、排序请求参数错误", nil, err)
 		return
 	}
+
 	result, err := productLogic.Search(&rec)
 	if err != nil {
 		c.Response(ctx, "综合搜索、筛选、排序失败", nil, err)
 	}
-	c.Response(ctx, "综合搜索、筛选、排序成功", result, nil)
+	global.Logger.Infof("search传递过来的结果为：%v", result)
+	pageResult := response.ResetPage(result, int64(len(result)), rec.PageNum, rec.PageSize)
+	c.Response(ctx, "综合搜索、筛选、排序成功", pageResult, nil)
 
 }
