@@ -1,4 +1,4 @@
-/config
+/config/config.ini
 /runtime
 /test
 !/config/config.example.ini
