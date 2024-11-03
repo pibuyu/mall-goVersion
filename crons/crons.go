@@ -14,11 +14,6 @@ import (
 var job *cron.Cron
 
 func InitCrons() {
-
-	//在这里启动消费者
-	//kafkaConsumer.StartNormalConsumer()
-	//kafkaConsumer.StartDelayConsumer()
-
 	job = cron.New(cron.WithSeconds())
 
 	//每10分钟查找并删除超时订单
