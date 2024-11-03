@@ -7,6 +7,7 @@ import (
 	receive "gomall/interaction/receive/home"
 	homeResponse "gomall/interaction/response/home"
 	"gomall/logic/home"
+	homeModels "gomall/models/home"
 	"strconv"
 )
 
@@ -112,6 +113,10 @@ func (c *HomeController) GetRecommendProductList(ctx *gin.Context) {
 	if err != nil {
 		c.Response(ctx, "获取推荐商品出错", nil, err)
 		return
+	}
+	// 确保返回空数组而不是 nil,不然前端会一直转圈圈
+	if newProductList == nil {
+		newProductList = homeModels.PmsProductList{} // 初始化为空数组
 	}
 	c.Response(ctx, "获取推荐商品成功", newProductList, nil)
 }

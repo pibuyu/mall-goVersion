@@ -414,7 +414,6 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 		return nil, errors.New("获取用户身份信息出错:" + err.Error())
 	}
 
-	//貌似一般情况下，都没有优惠，获取到的cartPromotionItemList也是空列表
 	cartPromotionItemList, err := cartLogic.CartListPromotion(data.CartIds, memberId)
 	if err != nil {
 		return nil, errors.New("获取购物车及优惠信息failed:" + err.Error())
@@ -490,6 +489,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	if err := handleRealAmount(pointerOrderItemList); err != nil {
 		return nil, errors.New("计算订单的实际支付金额出错:" + err.Error())
 	}
+
 	//进行库存锁定
 	//todo:This is a special comment.
 	// 这个地方有点坑爹：make([]*cart.CartPromotionItem, 0)初始化内存时，指定长度应该为0。如果指定长度为len(cartPromotionItemList)：
@@ -524,6 +524,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 		order.IntegrationAmount = calcIntegrationAmount(orderItemList)
 	}
 	order.PayAmount = calcPayAmount(*order)
+
 	//转化为订单信息并插入数据库
 	order.MemberID = currentMember.Id
 	now := time.Now()
@@ -566,7 +567,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	}
 	//插入订单表
 	//todo:this is a special comment.
-	// 凡是涉及到日期的，怎么全都是零值，前台查询order表的时候不允许数据库的时间字段出现零值.
+	// 凡是涉及到日期的，怎么全都是零值（应该是nil空值而不是00:00:00的零值），前台查询order表的时候不允许数据库的时间字段出现零值.
 	// 解决办法：把time.Time类型的字段全都改成*time.Time类型，这样未赋值的字段就是nil类型了
 	if err := order.Insert(); err != nil {
 		return nil, errors.New("创建订单时，插入订单表failed:" + err.Error())
@@ -737,7 +738,7 @@ func lockStockBySkuId(productSkusId int64, quantity int) (err error) {
 func calcPromotionAmount(orderItemList []order.OmsOrderItem) (result float32) {
 	for _, orderItem := range orderItemList {
 		if orderItem.PromotionAmount != 0 {
-			result += orderItem.PromotionAmount * float32(orderItem.CouponAmount)
+			result += orderItem.PromotionAmount * float32(orderItem.ProductQuantity)
 		}
 	}
 	return
@@ -780,7 +781,7 @@ func calcIntegrationAmount(orderItemList []order.OmsOrderItem) (result float32) 
 // 计算订单应付金额
 func calcPayAmount(order order.OmsOrder) (result float32) {
 	//总金额+运费-促销优惠-优惠券优惠-积分抵扣
-	payAmount := order.TotalAmount + order.FreightAmount + order.PromotionAmount + order.CouponAmount + order.IntegrationAmount
+	payAmount := order.TotalAmount + order.FreightAmount - order.PromotionAmount - order.CouponAmount - order.IntegrationAmount
 	return payAmount
 }
 

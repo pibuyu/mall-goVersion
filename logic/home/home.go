@@ -149,9 +149,19 @@ func GetRecommendSubjectList(offset int, limit int) (recommendSubjectList home.R
 }
 
 func GetRecommendProductList(offset int, limit int) (productList home.PmsProductList, err error) {
-
+	// 查询所有商品的总数
+	var total int64
+	if err := global.Db.Model(&home.PmsProduct{}).Where("delete_status = ?", 0).Where("publish_status = ?", 1).Count(&total).Error; err != nil {
+		return nil, errors.New("获取商品总数出错:" + err.Error())
+	}
+	// 判断 offset 和 limit 是否超出商品数量,如果超出了商品数量，需要返回空值
+	if offset >= int(total) {
+		return productList, nil // 返回空结果
+	}
 	//暂时默认推荐所有商品
-	if err := global.Db.Model(&home.PmsProduct{}).Where("delete_status = ?", 0).Where("publish_status = ?", 1).
+	if err := global.Db.Model(&home.PmsProduct{}).Where("delete_status = ?", 0).
+		Where("publish_status = ?", 1).
+		Offset(offset).Limit(limit).
 		Find(&productList).Error; err != nil {
 		return nil, errors.New("GetRecommendProductList查询出错:" + err.Error())
 	}
