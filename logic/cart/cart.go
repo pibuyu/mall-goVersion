@@ -100,7 +100,6 @@ func ItemIsExistInCart(item cart.OmsCartItem) (*cart.OmsCartItem, error) {
 	return nil, nil
 }
 
-// todo:应该是软删除！！！
 func Clear(memberId int64) error {
 	if err := global.Db.Model(&cart.OmsCartItem{}).Where("member_id = ?", memberId).
 		UpdateColumn("delete_status", 1).Error; err != nil {
@@ -240,7 +239,6 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 				}
 			}
 		} else if promotionType == 4 {
-			//todo:满减的逻辑还不对，小米的手机没有正确地满500-50
 			totalAmount := getCartItemAmount(itemList, promotionProductList)
 			fullReduction := getProductFullReduction(totalAmount, promotionProduct.ProductFullReduction)
 			global.Logger.Infof("计算得到的fullReduction为:%v", fullReduction)
@@ -252,7 +250,6 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 					//(商品原价/总价)*满减金额
 					skuStock := getOriginalPrice(promotionProduct, item.ProductSkuId)
 					originalPrice := skuStock.Price
-					//todo:This is a special comment.这里的计算公式不要搞错啦，之前写成了originalPrice / (totalAmount * fullReduction.ReducePrice),导致满减产品的优惠计算错误
 					reduceAmount := (originalPrice / totalAmount) * fullReduction.ReducePrice
 					cartPromotionItem.ReduceAmount = reduceAmount
 					cartPromotionItem.RealStock = skuStock.Stock - skuStock.LockStock
@@ -272,7 +269,7 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 			//for _, item := range cartPromotionItemList {
 			//	pointerCartPromotionItemList = append(pointerCartPromotionItemList, &item)
 			//}
-			//todo:初步判断是这里出了问题，导致购物车2个商品，生成的订单3个商品。找到原因了：handleNoReduce被执行了多次，每次携带过去的参数是指针切片，会在上一步结果的基础上累加。初步解决方案：把上面的指针切片赋值的过程注释掉，每次穿一个全新的空指针切片过去
+
 			result := handleNoReduce(pointerCartPromotionItemList, itemList, promotionProduct)
 			for _, item := range result {
 				cartPromotionItemList = append(cartPromotionItemList, *item)
@@ -348,8 +345,6 @@ func getPromotionProductList(cartItemList []cart.OmsCartItem) (results []cart.Pr
 
 // 根据商品ids查询优惠信息
 func getProductPromotionByIds(productIdList []int64) (results []cart.PromotionProduct, err error) {
-	// todo:这个方法报错：[error] invalid field found for struct gomall/models/cart.PromotionProduct's field SkuStockList:
-	//  define a valid foreign key for relations or implement the Valuer/Scanner interface。
 	//if err = global.Db.Table("pms_product p").
 	//	Select(`
 	//		p.id,

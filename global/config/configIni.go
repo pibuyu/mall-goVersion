@@ -136,7 +136,6 @@ func ReturnsInstance() *Info {
 	if err != nil {
 		log.Fatalf("Mysql读取配置文件错误: %v \n", err)
 	}
-	//todo:新增加的配置信息要在这里映射到config.Config属性中去才生效啊
 	//msgQueue config
 	Config.KafkaConfig = &KafkaConfigStruct{}
 	err = cfg.Section("kafka").MapTo(Config.KafkaConfig)

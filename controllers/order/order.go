@@ -88,7 +88,6 @@ func (c *OrderController) GenerateConfirmOrder(ctx *gin.Context) {
 
 }
 
-//todo:generateOrder计算出来的价格不对嗷
 func (c *OrderController) GenerateOrder(ctx *gin.Context) {
 	if rec, err := controller.ShouldBind(ctx, new(receive.GenerateOrderReqStruct)); err == nil {
 		oneOrder, err := order.GenerateOrder(rec, ctx)
@@ -160,7 +159,6 @@ func (c *OrderController) CancelUserOrder(ctx *gin.Context) {
 	c.Response(ctx, "用户主动取消订单成功", nil, nil)
 }
 
-// todo:这个方法应该由定时扫描的定时器来做.如果是手动调用，相当于手动清理那些超时订单
 func (c *OrderController) CancelTimeOutOrder(ctx *gin.Context) {
 	//不需要参数，直接扫描超时订单
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)

@@ -63,7 +63,7 @@ func StartDelayConsumer() {
 				}
 			} else {
 				//写回到延时队列中去
-				//todo:回写的时候可以直接传递整个message过去，但是转写入普通队列不行，需要用kafka.Message{Value: message.Value}作为参数。猜测是因为回写需要用到时间属性，所以照搬整个message作为参数；但是直接传递整个message给普通队列为什么不行我想不通
+
 				_, err := delayWriter.WriteMessages(message)
 				if err != nil {
 					log.Printf("延时队列消息回写失败：%v", err)
@@ -96,7 +96,6 @@ func StartNormalConsumer() {
 			//messsageBody := string(message.Value)
 
 			//处理定时发布视频的消息,此类消息形如:publishVideo_1234
-			//todo:可以在这里针对各种消息前缀进行拆分，然后执行对应的处理逻辑  or  细分出每类任务专用队列
 
 			//处理正常队列的消息
 			log.Printf("监听到了普通队列的消息：%s", string(message.Value))

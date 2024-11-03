@@ -180,7 +180,6 @@ func DeleteOrder(ctx *gin.Context, rec *receive.DeleteOrderReqStruct) (err error
 	}
 }
 
-// todo:还剩下几个需要改动的点：couponHistoryDetailList里的coupon的字段有点多了，可改可不改；integrationConsumeSetting还不对；最终的payAmount不对，主要是因为promotionAmount没算对
 func GenerateConfirmOrder(cartIds []int64, ctx *gin.Context) (result order.ConfirmOrderResult, err error) {
 	//1.获取当前用户的购物车信息
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
@@ -215,7 +214,6 @@ func GenerateConfirmOrder(cartIds []int64, ctx *gin.Context) (result order.Confi
 	integrationConsumeSetting.GetById(1)
 	result.IntegrationConsumeSetting = *integrationConsumeSetting
 	//计算总金额、活动优惠、应付金额
-	//todo:这里只是利用了每个calcAmount的totalAmount-promotionAmount，因此是上面对于cartPromotionItemList中每个item的promotionAmount计算出了问题
 	calcAmount := calcCartAmount(cartPromotionItemList)
 	result.CalcAmount = calcAmount
 	return
@@ -892,7 +890,6 @@ func getCouponOrderItemByRelation(couponHistoryDetail coupon.SmsCouponHistoryDet
 }
 
 // List 按状态分页获取用户订单列表
-// todo:怎么缺失了这么多数据就直接返回了？？？？
 func List(data *receive.ListReqStruct, memberId int64) (result []orderModel.OmsOrderDetail, err error) {
 	//result的orderList部分
 	var orderList []*orderModel.OmsOrder
@@ -1027,7 +1024,6 @@ func PaySuccess(data *receive.PaySuccessReqStruct) (count int, err error) {
 }
 
 func getDetail(orderId int64) (result orderModel.OmsOrderDetail, err error) {
-	//todo：手动拼接吧,又是外键错误
 	oneOrder := &orderModel.OmsOrder{}
 	orderItem := &orderModel.OmsOrderItem{}
 	if err = global.Db.Model(&orderModel.OmsOrder{}).Where("id", orderId).First(&oneOrder).Error; err != nil {

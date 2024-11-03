@@ -13,7 +13,7 @@ type CartController struct {
 	controller.BaseControllers
 }
 
-// todo:原项目中应该通过返回值是0 or 1来判断操作是否成功，这里尊重原项目的写法
+// 原项目中通过返回值是0 or 1来判断操作是否成功，这里尊重原项目的写法
 func (c *CartController) AddCartItem(ctx *gin.Context) {
 	if rec, err := controller.ShouldBind(ctx, new(receive.AddCartItemRequestStruct)); err == nil {
 		//在这里取出用户信息memberId
@@ -63,7 +63,6 @@ func (c *CartController) DeleteByIds(ctx *gin.Context) {
 }
 
 // GetProductById 获取购物车中指定商品的规格,用于重选规格
-// todo:传过来的参数是int类型时，controller.shouldBind方法绑定不上参数，是怎么回事？？？
 func (c *CartController) GetProductById(ctx *gin.Context) {
 	var rec receive.GetProductByIdRequestStruct
 	if err := ctx.ShouldBindJSON(&rec); err != nil {

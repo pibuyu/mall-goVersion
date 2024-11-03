@@ -29,7 +29,6 @@ func (PmsSkuStock) TableName() string {
 	return "pms_sku_stock"
 }
 
-// todo：这两个接口是豆包让实现的，不然会报错
 // 为 PmsSkuStock 结构体实现 Valuer 接口，用于将结构体转换为数据库可存储的值
 func (p PmsSkuStock) Value() (driver.Value, error) {
 	return json.Marshal(p)

@@ -77,9 +77,7 @@ func Detail(id int64) (result productModels.PmsPortalProductDetail, err error) {
 	return
 }
 
-// todo:This is a special comment.
-//
-//	不知道怎么写sql的时候，不妨先写出原生sql语句，然后用这种方式来搞定
+// todo:This is a special comment.不知道怎么写sql的时候，不妨先写出原生sql语句，然后用这种方式来搞定
 func getAvailableCouponList(productId int64, productCategoryId int64) (result []coupon.SmsCoupon, err error) {
 	query := `
         SELECT *
