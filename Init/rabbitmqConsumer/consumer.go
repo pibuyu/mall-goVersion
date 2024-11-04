@@ -6,14 +6,13 @@ import (
 	orderLogic "gomall/logic/order"
 	"log"
 	"strconv"
-	"strings"
 )
 
 func connectRabbitMQ() (*amqp.Connection, error) {
 	return amqp.Dial("amqp://mall:mall@101.126.144.39:5672/mall")
 }
 
-// todo:This is a special comment.这个消费者不能和测试类里的消费者一起启动，不然会导致测试类的消费者把消息给
+// todo:This is a special comment.这个消费者不能和测试类里的消费者一起启动，不然会导致测试类的消费者把消息提前消费了
 func StartDelayConsumer() {
 	conn, err := connectRabbitMQ()
 	if err != nil {
@@ -71,19 +70,4 @@ func StartDelayConsumer() {
 
 	// 保持程序运行
 	select {}
-}
-
-// 检查队列是否存在的辅助函数
-// 检查队列是否存在的辅助函数
-func isQueueExists(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// 检查错误信息
-	if strings.Contains(err.Error(), "PRECONDITION_FAILED") {
-		return true
-	}
-
-	return false
 }

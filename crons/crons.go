@@ -4,11 +4,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"gomall/Init/rabbitmqConsumer"
 	"gomall/consts"
-	"gomall/global"
 	orderLogic "gomall/logic/order"
 	"log"
 
-	"errors"
 	"github.com/robfig/cron/v3"
 )
 
@@ -34,14 +32,4 @@ func InitCrons() {
 	}
 
 	job.Start()
-}
-
-// AddTask 添加定时任务
-func AddTask(spec string, task func()) error {
-	_, err := job.AddFunc(spec, task)
-	if err != nil {
-		global.Logger.Errorf("添加定时任务出错：%s", err.Error())
-		return errors.New("添加定时任务出错：" + err.Error())
-	}
-	return nil
 }

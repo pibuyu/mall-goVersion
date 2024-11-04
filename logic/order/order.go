@@ -380,11 +380,6 @@ func calcTotalAmountByProductId(cartItemList cart.CartPromotionItemList, product
 	return
 }
 
-func getIntegrationConsumeSettingById(id int64) (result integration.UmsIntegrationConsumeSetting) {
-	global.Db.Model(&integration.UmsIntegrationConsumeSetting{}).Where("id = ?", id).First(&result)
-	return
-}
-
 // 计算购物车中商品的价格
 func calcCartAmount(cartPromotionItemList cart.CartPromotionItemList) (result order.CalcAmount) {
 	calcAmount := &order.CalcAmount{}
@@ -422,7 +417,6 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 		}
 	}
 	data.CartIds = filteredCartIds
-	//todo:这里应该再去判断一下cartIds对应的项的状态是否为deleted
 
 	//应该判断一下cartIds是否为空，如果为空应该直接返回成功了，不然会生成大量的空订单
 	if len(data.CartIds) == 0 {
