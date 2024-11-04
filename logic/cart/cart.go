@@ -241,7 +241,6 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 		} else if promotionType == 4 {
 			totalAmount := getCartItemAmount(itemList, promotionProductList)
 			fullReduction := getProductFullReduction(totalAmount, promotionProduct.ProductFullReduction)
-			global.Logger.Infof("计算得到的fullReduction为:%v", fullReduction)
 			if fullReduction != nil {
 				for _, item := range itemList {
 					cartPromotionItem := copyFromOmsCartItem(item)
@@ -276,7 +275,6 @@ func calcCartPromotion(cartItemList []cart.OmsCartItem) (cartPromotionItemList c
 			}
 		}
 	}
-	global.Logger.Infof("即将返回的cartPromotionItemList的长度为：%d,具体信息为:%v", len(cartPromotionItemList), cartPromotionItemList)
 	return cartPromotionItemList, nil
 }
 
@@ -532,7 +530,6 @@ func handleNoReduce(cartPromotionItemList []*cart.CartPromotionItem, itemList []
 		cartPromotionItem.Growth = promotionProduct.Product.GiftGrowth
 		cartPromotionItemList = append(cartPromotionItemList, &cartPromotionItem)
 	}
-	global.Logger.Infof("打印一下每次执行handleNoReduce时输入的itemList的长度：%d，以及此时返回的cartPromotionItemList的长度为：%d", len(itemList), len(cartPromotionItemList))
 
 	return cartPromotionItemList
 }

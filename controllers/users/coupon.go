@@ -44,7 +44,6 @@ func (c *CouponController) List(ctx *gin.Context) {
 		c.Response(ctx, "获取优惠券列表时，参数绑定失败:"+err.Error(), nil, err)
 		return
 	}
-	global.Logger.Infof("接收到的coupon的useStatus为：%d", rec.UseStatus)
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
 
 	couponList, err := coupon.GetCouponList(memberId, rec.UseStatus)

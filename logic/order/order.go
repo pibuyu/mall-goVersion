@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"gomall/consts"
 	"gomall/global"
 	receive "gomall/interaction/receive/order"
@@ -45,11 +46,11 @@ func Detail(orderId int64) (result *order.OmsOrderDetail, err error) {
 	return orderDetail, nil
 }
 
-func CancelOrder(data *receive.CancelOrderReqStruct) (err error) {
+func CancelOrder(orderId int64) (err error) {
 	//查询未付款的取消订单
 	cancelOrderList := make([]order.OmsOrder, 0)
 	if err = global.Db.Model(&order.OmsOrder{}).
-		Where("id = ?", data.OrderId).Where("status = ?", 0).Where("delete_status = ?", 0).
+		Where("id = ?", orderId).Where("status = ?", 0).Where("delete_status = ?", 0).
 		Find(&cancelOrderList).Error; err != nil {
 		return errors.New("取消订单时，查询未付款订单出错:" + err.Error())
 	}
@@ -599,12 +600,75 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	}
 	//发送延迟消息取消订单
 	//todo:完善这个消息队列的逻辑
-	//sendDelayMessageCancelOrder(order.ID)
+	if err := sendDelayMessageCancelOrder(order.ID); err != nil {
+		global.Logger.Errorf("向延迟队列发送消息失败:%v", err)
+	}
 	result = map[string]interface{}{
 		"order":         order,
 		"orderItemList": orderItemList,
 	}
 	return result, nil
+}
+
+func sendDelayMessageCancelOrder(orderId int64) error {
+	orderSetting := orderModel.OmsOrderSetting{}
+	if err := orderSetting.GetById(1); err != nil {
+		return fmt.Errorf("查询普通订单的过期时间出错: %v", err)
+	}
+	delayOrderTime := orderSetting.NormalOrderOvertime * 60 * 1000
+	ch, err := global.RabbitMQ.Channel()
+	if err != nil {
+		return fmt.Errorf("获取rabbitmq的channel出错: %v", err)
+	}
+	defer ch.Close() // 确保在函数结束时关闭通道
+
+	// 创建死信队列
+	dlqName := "dlq"
+	_, err = ch.QueueDeclare(
+		dlqName, // 队列名称
+		true,    // durable
+		false,   // delete when unused
+		false,   // exclusive
+		false,   // no-wait
+		nil,     // args
+	)
+	if err != nil {
+		return fmt.Errorf("声明死信队列失败: %v", err)
+	}
+
+	// 创建主队列，设置 TTL 和死信队列
+	mainQueueName := "main_queue"
+	_, err = ch.QueueDeclare(
+		mainQueueName, // 队列名称
+		true,          // durable
+		false,         // delete when unused
+		false,         // exclusive
+		false,         // no-wait
+		amqp.Table{
+			"x-message-ttl":             delayOrderTime, // 消息的 TTL，单位为毫秒
+			"x-dead-letter-exchange":    "",             // 使用默认交换机
+			"x-dead-letter-routing-key": dlqName,        // 死信队列的路由键
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("声明主队列失败: %v", err)
+	}
+
+	// 发送消息到主队列
+	if err = ch.Publish(
+		"",            // 使用默认交换机
+		mainQueueName, // 路由键（主队列名称）
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(strconv.FormatInt(orderId, 10)),
+		},
+	); err != nil {
+		return fmt.Errorf("发送消息到主队列失败: %v", err)
+	}
+
+	return nil
 }
 
 func hasStock(cartPromotionItemList cart.CartPromotionItemList) bool {

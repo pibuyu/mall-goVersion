@@ -11,8 +11,9 @@ type Info struct {
 	SqlConfig *SqlConfigStruct
 	RConfig   *RConfigStruct
 
-	ProjectUrl    string
-	MongoDBConfig *MongoDBConfigStruct
+	ProjectUrl     string
+	MongoDBConfig  *MongoDBConfigStruct
+	RabbitMQConfig *RabbitMQConfigStruct
 }
 
 func init() {
@@ -23,6 +24,14 @@ func init() {
 var Config = new(Info)
 var cfg *ini.File
 var err error
+
+type RabbitMQConfigStruct struct {
+	Host     string `ini:"host"`
+	Port     int    `ini:"port"`
+	User     string `ini:"user"`
+	Password string `ini:"password"`
+	Vhost    string `ini:"vhost"`
+}
 
 type SqlConfigStruct struct {
 	IP       string `ini:"ip"`
@@ -86,5 +95,12 @@ func ReturnsInstance() *Info {
 	if err != nil {
 		log.Fatalf("Redis读取配置文件错误: %v \n", err)
 	}
+	//rabbitmq config
+	Config.RabbitMQConfig = &RabbitMQConfigStruct{}
+	err = cfg.Section("rabbitmq").MapTo(Config.RabbitMQConfig)
+	if err != nil {
+		log.Fatalf("rabbitmq读取配置文件错误: %v \n", err)
+	}
+
 	return Config
 }

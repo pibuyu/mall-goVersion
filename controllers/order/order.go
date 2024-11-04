@@ -17,7 +17,6 @@ type OrderController struct {
 
 func (c *OrderController) Detail(ctx *gin.Context) {
 	orderId, _ := strconv.ParseInt(ctx.Param("orderId"), 10, 64)
-	global.Logger.Infof("接收到的orderId为：%d", orderId)
 	result, err := order.Detail(orderId)
 	if err != nil {
 		c.Response(ctx, "获取订单详情失败", nil, err)
@@ -33,7 +32,7 @@ func (c *OrderController) CancelOrder(ctx *gin.Context) {
 		c.Response(ctx, "请求参数错误", nil, err)
 		return
 	}
-	if err := order.CancelOrder(&rec); err != nil {
+	if err := order.CancelOrder(rec.OrderId); err != nil {
 		global.Logger.Error("取消订单出错:%v", err)
 	}
 
@@ -57,11 +56,7 @@ func (c *OrderController) ConfirmReceiveOrder(ctx *gin.Context) {
 
 func (c *OrderController) DeleteOrder(ctx *gin.Context) {
 	var rec receive.DeleteOrderReqStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
-		global.Logger.Errorf("DeleteOrder请求传入参绑定失败: %v", err)
-		c.Response(ctx, "请求参数错误", nil, err)
-		return
-	}
+	rec.OrderId, _ = strconv.ParseInt(ctx.PostForm("orderId"), 10, 64)
 	if err := order.DeleteOrder(ctx, &rec); err != nil {
 		global.Logger.Error("删除订单出错:%v", err)
 		c.Response(ctx, "删除订单失败", nil, err)
@@ -114,7 +109,6 @@ func (c *OrderController) List(ctx *gin.Context) {
 	if err != nil {
 		c.Response(ctx, "按订单状态分页获取订单列表失败", nil, err)
 	}
-	global.Logger.Infof("分页查询订单，获取到的pageResult为:%v", result)
 	pageResult := response.ResetPage(result, int64(len(result)), rec.PageNum, rec.PageSize)
 	c.Response(ctx, "按订单状态分页获取订单列表成功", pageResult, nil)
 }
@@ -140,18 +134,9 @@ func (c *OrderController) PaySuccess(ctx *gin.Context) {
 
 // CancelUserOrder 用户取消订单
 func (c *OrderController) CancelUserOrder(ctx *gin.Context) {
-	//var rec receive.CancelUserOrderReqStruct
-	//if err := ctx.ShouldBindJSON(&rec); err != nil {
-	//	global.Logger.Errorf("CancelUserOrder请求传入参绑定失败: %v", err)
-	//	c.Response(ctx, "请求参数错误", nil, err)
-	//	return
-	//}
 	orderId, _ := strconv.ParseInt(ctx.PostForm("orderId"), 10, 64)
 
-	newRec := &receive.CancelOrderReqStruct{
-		OrderId: orderId,
-	}
-	if err := order.CancelOrder(newRec); err != nil {
+	if err := order.CancelOrder(orderId); err != nil {
 		global.Logger.Error("用户主动取消订单出错:%v", err)
 		c.Response(ctx, "用户主动取消订单失败", nil, err)
 		return
