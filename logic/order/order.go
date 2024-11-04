@@ -414,12 +414,15 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 			global.Logger.Errorf("Redis 错误: %v", err)
 			continue
 		}
-		if setNX {
+		var count int64
+		global.Db.Model(&cart.OmsCartItem{}).Where("id = ?", id).Where("delete_status = ?", 0).Count(&count)
+		if setNX && count > 0 {
 			// 如果 SetNX 成功，表示这个 cartId 可以被使用
 			filteredCartIds = append(filteredCartIds, id)
 		}
 	}
 	data.CartIds = filteredCartIds
+	//todo:这里应该再去判断一下cartIds对应的项的状态是否为deleted
 
 	//应该判断一下cartIds是否为空，如果为空应该直接返回成功了，不然会生成大量的空订单
 	if len(data.CartIds) == 0 {
@@ -1080,20 +1083,39 @@ func copyProperties(item *orderModel.OmsOrder, detail *orderModel.OmsOrderDetail
 }
 
 func PaySuccess(data *receive.PaySuccessReqStruct) (count int, err error) {
-	//修改订单的支付状态
+	// 开始事务
+	tx := global.Db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback() // 回滚事务
+			err = fmt.Errorf("发生错误: %v", r)
+		}
+	}()
+
+	global.Logger.Infof("传递过来的参数结构体为：%v", data)
+	//1.修改订单的支付状态
 	oneOrder := &orderModel.OmsOrder{}
-	if err = global.Db.Model(&orderModel.OmsOrder{}).Where("id", data.OrderId).
-		Where("delete_status", 0).Where("status", 0).First(oneOrder).Error; err != nil {
+	if err = tx.Model(&orderModel.OmsOrder{}).Debug().Where("id = ?", data.OrderId).
+		Where("delete_status = ?", 0).Where("status = ?", 0).First(oneOrder).Error; err != nil {
 		return 0, errors.New("按照orderId和状态查询订单failed:" + err.Error())
 	}
+
+	//如果已经支付过了，就直接返回成功
+	key := fmt.Sprintf("%s:%s", consts.AVOID_REPEAT_PAYMENT_PREFIX, strconv.FormatInt(data.OrderId, 10))
+	result, _ := global.RedisDb.Get(key).Result()
+	if result == "1" || oneOrder.Status != 0 {
+		return 1, nil
+	}
+
 	oneOrder.PayType = data.PayType
 	oneOrder.Status = 1
 	now := time.Now()
 	oneOrder.PaymentTime = &now
-	if err = global.Db.Model(&orderModel.OmsOrder{}).Where("id", oneOrder.ID).Updates(oneOrder).Error; err != nil {
+	if err = tx.Model(&orderModel.OmsOrder{}).Where("id", oneOrder.ID).Updates(oneOrder).Error; err != nil {
+		tx.Rollback()
 		return 0, errors.New("修改订单的支付状态和支付时间failed:" + err.Error())
 	}
-	//恢复商品的锁定库存，扣减真实库存
+	//2.恢复商品的锁定库存，扣减真实库存
 	orderDetail, err := getDetail(data.OrderId)
 	if err != nil {
 		return 0, err
@@ -1105,10 +1127,17 @@ func PaySuccess(data *receive.PaySuccessReqStruct) (count int, err error) {
 	for _, item := range orderDetail.OrderItemList {
 		err := reduceSkuStock(item.ProductSkuId, item.ProductQuantity)
 		if err != nil {
+			tx.Rollback()
 			return 0, errors.New("库存不足，无法扣减")
 		}
 		totalCount++
 	}
+	// 提交事务
+	if err = tx.Commit().Error; err != nil {
+		return 0, errors.New("提交事务失败: " + err.Error())
+	}
+	global.RedisDb.Set(key, "1", 15*time.Minute)
+
 	return totalCount, nil
 }
 

@@ -118,11 +118,6 @@ func (c *OrderController) PaySuccess(ctx *gin.Context) {
 	var rec receive.PaySuccessReqStruct
 	rec.OrderId, _ = strconv.ParseInt(ctx.PostForm("orderId"), 10, 64)
 	rec.PayType, _ = strconv.Atoi(ctx.PostForm("payType"))
-	//if err := ctx.ShouldBind(&rec); err != nil {
-	//	global.Logger.Errorf("PaySuccess请求传入参绑定失败: %v", err)
-	//	c.Response(ctx, "请求参数错误", nil, err)
-	//	return
-	//}
 
 	count, err := order.PaySuccess(&rec)
 	if err != nil {
