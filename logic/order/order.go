@@ -72,14 +72,14 @@ func CancelOrder(orderId int64) (err error) {
 		//解除订单商品库存锁定
 		if len(orderItemList) != 0 {
 			for _, item := range orderItemList {
-				if err := releaseStockBySkuID(item.ProductSkuId, item.ProductQuantity); err != nil {
+				if err = releaseStockBySkuID(item.ProductSkuId, item.ProductQuantity); err != nil {
 					//这里貌似不应该返回报错
-					global.Logger.Errorf("库存不足，无法释放")
+					global.Logger.Errorf("库存不足，无法释放,具体错误信息为：%v", err)
 				}
 			}
 		}
 		//修改优惠券的使用状态（退还已用的优惠券）
-		if err := updateCouponStatus(cancelOrder.CouponID, cancelOrder.MemberID, 0); err != nil {
+		if err = updateCouponStatus(cancelOrder.CouponID, cancelOrder.MemberID, 0); err != nil {
 			global.Logger.Errorf("退还优惠券时,修改优惠券状态失败")
 		}
 		//返还使用积分
@@ -100,7 +100,7 @@ func CancelOrder(orderId int64) (err error) {
 
 func releaseStockBySkuID(productSkuId int64, productQuantity int) (err error) {
 	if err = global.Db.Model(&cart.PmsSkuStock{}).
-		Where("id = ?", productSkuId).Where("loc_stock - ? >=0", productQuantity).
+		Where("id = ?", productSkuId).Where("lock_stock - ? >=0", productQuantity).
 		Update("lock_stock", gorm.Expr("lock_stock - ?", productQuantity)).Error; err != nil {
 		return errors.New("释放库存失败:" + err.Error())
 	}
@@ -401,13 +401,37 @@ func calcCartAmount(cartPromotionItemList cart.CartPromotionItemList) (result or
 }
 
 func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (result map[string]interface{}, err error) {
+	var filteredCartIds []int64
+	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
+	formatInt := strconv.FormatInt(memberId, 10)
+
+	//从cartIds里剔除掉重复下单的id
+	for _, id := range data.CartIds {
+		key := fmt.Sprintf("%s:%s:%s", consts.AVOID_REPEAT_ORDER_PREFIX, formatInt, strconv.FormatInt(id, 10))
+		setNX, err := global.RedisDb.SetNX(key, 1, 2*time.Second).Result()
+		if err != nil {
+			// 处理错误
+			global.Logger.Errorf("Redis 错误: %v", err)
+			continue
+		}
+		if setNX {
+			// 如果 SetNX 成功，表示这个 cartId 可以被使用
+			filteredCartIds = append(filteredCartIds, id)
+		}
+	}
+	data.CartIds = filteredCartIds
+
+	//应该判断一下cartIds是否为空，如果为空应该直接返回成功了，不然会生成大量的空订单
+	if len(data.CartIds) == 0 {
+		return nil, nil
+	}
 	orderItemList := make([]order.OmsOrderItem, 0)
 	//校验收货地址
 	if data.MemberReceiveAddressId == 0 {
 		return nil, errors.New("请选择收货地址！")
 	}
 	//获取购物车及优惠信息
-	memberId, err := jwt.GetMemberIdFromCtx(ctx)
+	memberId, _ = jwt.GetMemberIdFromCtx(ctx)
 	currentMember := &users.User{}
 	if err := currentMember.GetMemberById(memberId); err != nil {
 		return nil, errors.New("获取用户身份信息出错:" + err.Error())
@@ -615,7 +639,7 @@ func sendDelayMessageCancelOrder(orderId int64) error {
 	if err := orderSetting.GetById(1); err != nil {
 		return fmt.Errorf("查询普通订单的过期时间出错: %v", err)
 	}
-	delayOrderTime := orderSetting.NormalOrderOvertime * 60 * 1000
+	delayOrderTime := orderSetting.ConfirmOvertime * 60 * 1000
 	ch, err := global.RabbitMQ.Channel()
 	if err != nil {
 		return fmt.Errorf("获取rabbitmq的channel出错: %v", err)
@@ -667,6 +691,7 @@ func sendDelayMessageCancelOrder(orderId int64) error {
 	); err != nil {
 		return fmt.Errorf("发送消息到主队列失败: %v", err)
 	}
+	global.Logger.Infof("发送id=%d的订单到延时队列", orderId)
 
 	return nil
 }

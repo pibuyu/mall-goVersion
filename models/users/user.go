@@ -44,7 +44,7 @@ func (user *User) GetMemberById(memberId int64) (err error) {
 }
 
 func (user *User) Update() (err error) {
-	if err = global.Db.Model(&User{}).Updates(user).Error; err != nil {
+	if err = global.Db.Model(&User{}).Where("id=?", user.Id).Updates(user).Error; err != nil {
 		return errors.New("修改用户信息出错:" + err.Error())
 	}
 	return nil
