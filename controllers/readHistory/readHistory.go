@@ -17,7 +17,6 @@ type ReadHistoryController struct {
 
 func (c *ReadHistoryController) Create(ctx *gin.Context) {
 	if rec, err := controller.ShouldBind(ctx, new(receive.CreateReadHistoryReqStruct)); err == nil {
-		//global.Logger.Infof("创建浏览记录的传参:%v", rec)
 		memberId, err := jwt.GetMemberIdFromCtx(ctx)
 		if err != nil {
 			c.Response(ctx, "用户身份校验错误", nil, err)

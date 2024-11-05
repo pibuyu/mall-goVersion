@@ -14,7 +14,7 @@ type ListCartRequestStruct struct {
 }
 
 type ListByProductRequestStruct struct {
-	ProductId int64 `json:"productId"`
+	ProductId int64 `form:"productId"`
 }
 
 type ListHistoryRequestStruct struct {

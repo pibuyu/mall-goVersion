@@ -30,7 +30,7 @@ func (c *BrandAttentionController) Add(ctx *gin.Context) {
 		rec.MemberNickname = curUser.Nickname
 		rec.MemberIcon = curUser.Icon
 		rec.CreateTime = time.Now()
-		count, err := brandAttention.Add(rec)
+		count, err := brandAttention.Add(rec, memberId)
 		if err != nil {
 			c.Response(ctx, "添加收藏品牌失败", 0, err)
 			return

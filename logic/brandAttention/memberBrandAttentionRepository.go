@@ -33,10 +33,11 @@ func (repo *MemberBrandAttentionRepository) FindByMemberIdAndProductId(ctx conte
 	return &result, nil
 }
 
-func (repo *MemberBrandAttentionRepository) Save(ctx context.Context, collection *brandAttention.MemberBrandAttention) (err error) {
+func (repo *MemberBrandAttentionRepository) Save(ctx context.Context, collection *brandAttention.MemberBrandAttention, memberId int64) (err error) {
 	// 设置过滤条件，确保同一 (memberId, productId) 组合不会重复插入
 	filter := bson.M{
-		"brandId": collection.BrandId,
+		"brandId":  collection.BrandId,
+		"memberId": memberId,
 	}
 	// 使用 upsert 选项：如果存在则更新，不存在则插入
 	update := bson.M{

@@ -20,11 +20,6 @@ func (c *LoginController) Login(ctx *gin.Context) {
 	var rec receive.UserLoginReceiveStruct
 	rec.Username = ctx.PostForm("username")
 	rec.Password = ctx.PostForm("password")
-	//if err := ctx.ShouldBind(rec); err != nil {
-	//	c.Response(ctx, "用户登录时，绑定参数失败", nil, err)
-	//	global.Logger.Errorf("用户登录时，绑定参数失败:%v", err)
-	//	return
-	//}
 	//先是去缓存里查询了以下username对应的用户信息，然后比对密码
 	user, err := userCache.LoadUserByUsername(rec.Username)
 	if err != nil {

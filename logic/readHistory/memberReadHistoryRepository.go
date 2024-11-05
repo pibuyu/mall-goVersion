@@ -8,6 +8,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"gomall/global"
 	readHistoryModels "gomall/models/history"
+	"gomall/models/readHistory"
+	"log"
 	"time"
 )
 
@@ -85,4 +87,16 @@ func convertIdsToObjectIDs(ids []int64) []primitive.ObjectID {
 		objectIDs[i] = primitive.NewObjectIDFromTimestamp(time.Unix(id, 0))
 	}
 	return objectIDs
+}
+
+func (repo *MemberReadHistoryRepository) CreateReadHistory(ctx context.Context, collection *readHistory.MemberReadHistory, memberId int64) error {
+	//不再设置过滤条件，因为浏览记录可以重复
+	// 直接执行插入操作
+	_, err := repo.collection.InsertOne(ctx, collection)
+	if err != nil {
+		log.Printf("Error inserting document: %v\n", err)
+		return err
+	}
+
+	return nil
 }

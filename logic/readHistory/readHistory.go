@@ -3,16 +3,19 @@ package readHistory
 import (
 	"context"
 	"errors"
+	"fmt"
 	"gomall/global"
 	receive "gomall/interaction/receive/readHistory"
 	"gomall/models/history"
 	"gomall/models/home"
+	readHistoryCollection "gomall/models/readHistory"
 	"gomall/models/users"
 	"time"
 )
 
 func CreateReadHistory(data *receive.CreateReadHistoryReqStruct, memberId int64) (err error) {
-	readHistory := &history.MemberReadHistory{}
+
+	readHistory := &readHistoryCollection.MemberReadHistory{}
 	user := &users.User{}
 	product := &home.PmsProduct{}
 	//需要根据memberId倒查用户信息
@@ -25,22 +28,28 @@ func CreateReadHistory(data *receive.CreateReadHistoryReqStruct, memberId int64)
 		return errors.New("创建浏览记录时，查询商品信息failed:" + err.Error())
 	}
 	//然后开始构造readHistory
-	readHistory.MemberId = memberId
+	readHistory.MemberID = memberId
 	readHistory.MemberNickname = user.Nickname
 	readHistory.MemberIcon = user.Icon
-	readHistory.CreateTime = time.Now().Format("2006-01-02 15:04:05")
+	readHistory.CreateTime = time.Now()
 	if product.Id == 0 {
 		return errors.New("商品不存在")
 	}
-	readHistory.ProductId = data.ProductId
+	readHistory.ProductID = data.ProductId
 	readHistory.ProductName = product.Name
 	readHistory.ProductSubTitle = product.SubTitle
-	readHistory.ProductPrice = product.Price
+	readHistory.ProductPrice = fmt.Sprintf("%.2f", product.Price)
 	readHistory.ProductPic = product.Pic
-	if err = global.Db.Create(&readHistory).Error; err != nil {
-		return errors.New("创建浏览记录时，插入浏览记录failed:" + err.Error())
+
+	db := global.MongoDb.Database("mall-port")
+	repo := NewMemberReadHistoryRepository(db, "memberReadHistory")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	//执行查询
+	if err = repo.CreateReadHistory(ctx, readHistory, memberId); err != nil {
+		return errors.New("创建浏览记录时出错，向mongodb插入数据失败: " + err.Error())
 	}
-	return
+	return nil
 }
 
 func ClearReadHistory(memberId int64) (err error) {

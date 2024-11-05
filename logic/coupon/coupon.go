@@ -27,7 +27,6 @@ func AddCoupon(couponId int64, memberId int64) (err error) {
 	if err := oneCoupon.GetCouponById(couponId); err != nil {
 		return errors.New("领取优惠券过程中，获取优惠券信息失败:" + err.Error())
 	}
-	global.Logger.Infof("查询出来的优惠券信息为:%v", oneCoupon)
 	if oneCoupon.Count <= 0 {
 		return errors.New("优惠券已经领完了")
 	}
@@ -40,8 +39,6 @@ func AddCoupon(couponId int64, memberId int64) (err error) {
 		return errors.New("领取优惠券过程中，获取优惠券领取历史记录失败:" + err.Error())
 	}
 	//解引用，获取到指向的切片
-	global.Logger.Infof("当前id=%d的用户已经领取了id=%d的优惠券%d张", memberId, couponId, len(*couponHistoryExample))
-	global.Logger.Infof("当前优惠券限制领取%d张", oneCoupon.PerLimit)
 	if len(*couponHistoryExample) >= oneCoupon.PerLimit {
 		return errors.New("优惠券领取数量已经超过限制")
 	}

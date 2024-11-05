@@ -12,7 +12,7 @@ func connectRabbitMQ() (*amqp.Connection, error) {
 	return amqp.Dial("amqp://mall:mall@101.126.144.39:5672/mall")
 }
 
-// todo:This is a special comment.这个消费者不能和测试类里的消费者一起启动，不然会导致测试类的消费者把消息提前消费了
+// 这个消费者不能和测试类里的消费者一起启动，不然会导致测试类的消费者把消息提前消费了
 func StartDelayConsumer() {
 	conn, err := connectRabbitMQ()
 	if err != nil {
@@ -58,13 +58,15 @@ func StartDelayConsumer() {
 		for msg := range dlqMsgs {
 			strId := string(msg.Body)
 			orderId, _ := strconv.ParseInt(strId, 10, 64)
-			if err := orderLogic.CancelOrder(orderId); err != nil {
-				global.Logger.Errorf("取消id=%d的订单失败")
+			if err = orderLogic.CancelOrder(orderId); err != nil {
+				global.Logger.Errorf("取消id=%d的订单失败:%v", orderId, err)
 			}
 			global.Logger.Infof("取消了id为%d的订单，因为其超时未支付")
 
 			// 确认消息
-			msg.Ack(false)
+			if err = msg.Ack(false); err != nil {
+				global.Logger.Errorf("消费消息出错:%v", err)
+			}
 		}
 	}()
 

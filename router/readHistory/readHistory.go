@@ -14,7 +14,6 @@ func (c *ReadHistoryRouter) InitReadHistoryRouter(Router *gin.RouterGroup) {
 		readHistoryController := new(readHistory.ReadHistoryController)
 		readHistoryRouter.GET("/readHistory/list", readHistoryController.List)
 		readHistoryRouter.POST("/readHistory/clear", readHistoryController.Clear)
-		//todo:下面的两个方法还需要改造成操作mongodb
 		readHistoryRouter.POST("/readHistory/create", readHistoryController.Create)
 		readHistoryRouter.POST("/readHistory/delete", readHistoryController.Delete)
 	}

@@ -51,7 +51,7 @@ func CancelOrder(orderId int64) (err error) {
 	cancelOrderList := make([]order.OmsOrder, 0)
 	if err = global.Db.Model(&order.OmsOrder{}).
 		Where("id = ?", orderId).Where("status = ?", 0).Where("delete_status = ?", 0).
-		Find(&cancelOrderList).Error; err != nil {
+		Find(&cancelOrderList).Error; err != nil && err != gorm.ErrRecordNotFound {
 		return errors.New("取消订单时，查询未付款订单出错:" + err.Error())
 	}
 	if len(cancelOrderList) == 0 {
@@ -395,6 +395,7 @@ func calcCartAmount(cartPromotionItemList cart.CartPromotionItemList) (result or
 	return *calcAmount
 }
 
+// fixme:生成订单时如果带上了优惠券的信息，会生成多个订单
 func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (result map[string]interface{}, err error) {
 	var filteredCartIds []int64
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
@@ -404,11 +405,14 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	for _, id := range data.CartIds {
 		key := fmt.Sprintf("%s:%s:%s", consts.AVOID_REPEAT_ORDER_PREFIX, formatInt, strconv.FormatInt(id, 10))
 		setNX, err := global.RedisDb.SetNX(key, 1, 2*time.Second).Result()
+		global.Logger.Infof("本次生成订单的id为：%d,获取分布式锁的结果为：%v", id, setNX)
 		if err != nil {
 			// 处理错误
 			global.Logger.Errorf("Redis 错误: %v", err)
 			continue
 		}
+
+		//这一段是干嘛的？？
 		var count int64
 		global.Db.Model(&cart.OmsCartItem{}).Where("id = ?", id).Where("delete_status = ?", 0).Count(&count)
 		if setNX && count > 0 {
@@ -419,7 +423,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	data.CartIds = filteredCartIds
 
 	//应该判断一下cartIds是否为空，如果为空应该直接返回成功了，不然会生成大量的空订单
-	if len(data.CartIds) == 0 {
+	if len(filteredCartIds) == 0 {
 		return nil, nil
 	}
 	orderItemList := make([]order.OmsOrderItem, 0)
@@ -813,7 +817,7 @@ func lockStock(cartPromotionItemList []*cart.CartPromotionItem) (err error) {
 
 func lockStockBySkuId(productSkusId int64, quantity int) (err error) {
 	if err = global.Db.Model(&cart.PmsSkuStock{}).
-		Where("id = ?", productSkusId).Update("lock_stock", gorm.Expr("lock_stock - ?", quantity)).Error; err != nil {
+		Where("id = ?", productSkusId).Update("lock_stock", gorm.Expr("lock_stock + ?", quantity)).Error; err != nil {
 		return errors.New("锁定库存时，更新库存failed:" + err.Error())
 	}
 	return nil
@@ -1086,7 +1090,6 @@ func PaySuccess(data *receive.PaySuccessReqStruct) (count int, err error) {
 		}
 	}()
 
-	global.Logger.Infof("传递过来的参数结构体为：%v", data)
 	//1.修改订单的支付状态
 	oneOrder := &orderModel.OmsOrder{}
 	if err = tx.Model(&orderModel.OmsOrder{}).Debug().Where("id = ?", data.OrderId).
@@ -1119,6 +1122,7 @@ func PaySuccess(data *receive.PaySuccessReqStruct) (count int, err error) {
 	}
 	totalCount := 0
 	for _, item := range orderDetail.OrderItemList {
+		//todo:这里减库存的时候查找条件是stock-quantity和lock_stock-quantity都要大于0才行，但是生成订单的时候貌似减了锁定库存，导致这里不会扣减真实库存
 		err := reduceSkuStock(item.ProductSkuId, item.ProductQuantity)
 		if err != nil {
 			tx.Rollback()

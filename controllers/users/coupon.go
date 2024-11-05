@@ -9,6 +9,7 @@ import (
 	cartLogic "gomall/logic/cart"
 	coupon "gomall/logic/coupon"
 	"gomall/utils/jwt"
+	"strconv"
 )
 
 type CouponController struct {
@@ -17,14 +18,11 @@ type CouponController struct {
 
 func (c *CouponController) Add(ctx *gin.Context) {
 	var rec receive.AddCouponRequestStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
-		global.Logger.Errorf("领取优惠券时，参数绑定失败:%v", err.Error())
-		c.Response(ctx, "领取优惠券时，参数绑定失败:"+err.Error(), nil, err)
-		return
-	}
+	rec.CouponId, _ = strconv.ParseInt(ctx.Param("couponId"), 10, 64)
 	if rec.CouponId == 0 {
 		c.Response(ctx, "领取优惠券时，优惠券id非法", nil, errors.New("领取优惠券时，优惠券id非法"))
 	}
+	global.Logger.Infof("领取的优惠券id为：%d", rec.CouponId)
 
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
 
@@ -80,11 +78,7 @@ func (c *CouponController) ListCart(ctx *gin.Context) {
 // ListByProduct 获取当前商品相关的优惠券
 func (c *CouponController) ListByProduct(ctx *gin.Context) {
 	var rec receive.ListByProductRequestStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
-		global.Logger.Errorf("获取当前商品相关的优惠券时，参数绑定失败:%v", err.Error())
-		c.Response(ctx, "获取当前商品相关的优惠券时，参数绑定失败:"+err.Error(), nil, err)
-		return
-	}
+	rec.ProductId, _ = strconv.ParseInt(ctx.Param("productId"), 10, 64)
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
 
 	couponHistoryList, err := coupon.ListByProductId(rec.ProductId, memberId)

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func Add(data *receive.AddBrandAttentionReqStruct) (count int, err error) {
+func Add(data *receive.AddBrandAttentionReqStruct, memberId int64) (count int, err error) {
 	//将data数据映射到brandAttention对象中
 	memberBrandAttention := &brandAttentionModels.MemberBrandAttention{
 		//member
@@ -46,7 +46,7 @@ func Add(data *receive.AddBrandAttentionReqStruct) (count int, err error) {
 		//保存
 		memberBrandAttention.BrandName = brand.Name
 		memberBrandAttention.BrandLogo = brand.Logo
-		if err = repo.Save(ctx, memberBrandAttention); err != nil {
+		if err = repo.Save(ctx, memberBrandAttention, memberId); err != nil {
 			return 0, errors.New("添加关注的品牌的过程中，在mongodb中插入记录出错: " + err.Error())
 		}
 	}
