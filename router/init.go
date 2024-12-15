@@ -4,20 +4,24 @@ import (
 	"github.com/gin-gonic/gin"
 	middlewares "gomall/middleware"
 	cartRouter "gomall/router/cart"
+	esRouter "gomall/router/es"
 	homeRouter "gomall/router/home"
 	orderRouter "gomall/router/order"
+	"gomall/router/payment"
 	productRouter "gomall/router/product"
 	readHistoryRouter "gomall/router/readHistory"
 	usersRouter "gomall/router/users"
 )
 
 type RouterGroup struct {
-	Users         usersRouter.RouterGroup
-	Home          homeRouter.RouterGroup
-	Cart          cartRouter.RouterGroup
-	ReadHistory   readHistoryRouter.RouterGroup
-	OrderRouter   orderRouter.RouterGroup
-	ProductRouter productRouter.RouterGroup
+	Users           usersRouter.RouterGroup
+	Home            homeRouter.RouterGroup
+	Cart            cartRouter.RouterGroup
+	ReadHistory     readHistoryRouter.RouterGroup
+	OrderRouter     orderRouter.RouterGroup
+	ProductRouter   productRouter.RouterGroup
+	EsProductRouter esRouter.RouterGroup
+	PaymentRouter   payment.RouterGroup
 }
 
 var RoutersGroup = new(RouterGroup)
@@ -43,6 +47,8 @@ func InitRouter() {
 		RoutersGroup.ReadHistory.InitReadHistoryRouter(PrivateGroup)
 		RoutersGroup.OrderRouter.InitOrderRouter(PrivateGroup)
 		RoutersGroup.ProductRouter.InitProductRouter(PrivateGroup)
+		RoutersGroup.EsProductRouter.InitEsProductRouter(PrivateGroup)
+		RoutersGroup.PaymentRouter.InitPaymentRouter(PrivateGroup)
 	}
 
 	if err := router.Run(":9090"); err != nil {

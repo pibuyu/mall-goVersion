@@ -56,7 +56,6 @@ func (c *ProductController) Search(ctx *gin.Context) {
 	if err != nil {
 		c.Response(ctx, "综合搜索、筛选、排序失败", nil, err)
 	}
-	global.Logger.Infof("search传递过来的结果为：%v", result)
 	pageResult := response.ResetPage(result, int64(len(result)), rec.PageNum, rec.PageSize)
 	c.Response(ctx, "综合搜索、筛选、排序成功", pageResult, nil)
 

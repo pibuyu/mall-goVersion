@@ -131,7 +131,7 @@ func GetNewProductList(offset int, limit int) (productList home.PmsProductList, 
 
 func GetHotProductList(offset int, limit int) (productList home.PmsProductList, err error) {
 	if err := global.Db.Model(&home.PmsProduct{}).Joins("LEFT JOIN sms_home_recommend_product ON pms_product.id=sms_home_recommend_product.product_id").
-		Order("sms_home_recommend_product.sort desc").Limit(limit).Offset(offset).Find(&productList).Error; err != nil {
+		Where("pms_product.delete_status = ? and pms_product.publish_status = ?", 0, 1).Order("sms_home_recommend_product.sort desc").Limit(limit).Offset(offset).Find(&productList).Error; err != nil {
 		return nil, errors.New("查询sms_home_recommend_product出错:" + err.Error())
 	}
 	return productList, nil

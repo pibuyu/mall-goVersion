@@ -16,6 +16,7 @@ import (
 	orderModel "gomall/models/order"
 	"gomall/models/users"
 	"gomall/utils/jwt"
+	"gomall/utils/msg"
 	"gorm.io/gorm"
 	"strconv"
 	"strings"
@@ -108,6 +109,7 @@ func releaseStockBySkuID(productSkuId int64, productQuantity int) (err error) {
 }
 
 // 将优惠券信息更改为指定状态
+// todo:现在有个bug：生成订单的时候消耗了一张优惠券，支付成功的时候又消耗了一张优惠券
 func updateCouponStatus(couponID int64, memberId int64, useStatus int) (err error) {
 	if couponID == 0 {
 		return nil
@@ -115,15 +117,17 @@ func updateCouponStatus(couponID int64, memberId int64, useStatus int) (err erro
 
 	//找到这张优惠券
 	couponHistory := &coupon.SmsCouponHistory{}
+	//例如原本的useStatus=0，想要修改为1，则去找第一个useStatus = 0的优惠券，并将其修改为1
 	status := 1
 	if useStatus == 1 {
-		useStatus = 0
+		status = 0
 	}
 	if err = global.Db.Model(&coupon.SmsCouponHistory{}).
 		Where("member_id = ?", memberId).Where("coupon_id = ?", couponID).Where("use_status = ?", status).
 		First(&couponHistory).Error; err != nil {
 		return errors.New("查询优惠券出错:" + err.Error())
 	}
+
 	//将其使用时间和使用状态修改一下
 	now := time.Now()
 	couponHistory.UseTime = &now
@@ -131,6 +135,7 @@ func updateCouponStatus(couponID int64, memberId int64, useStatus int) (err erro
 	if err = global.Db.Model(&coupon.SmsCouponHistory{}).Where("id", couponHistory.ID).Updates(&couponHistory).Error; err != nil {
 		return errors.New("更新优惠券状态出错:" + err.Error())
 	}
+	global.Logger.Infof("将id=%d的优惠券的使用状态修改为:%v", couponHistory.ID, couponHistory.UseStatus)
 	return nil
 }
 
@@ -395,7 +400,6 @@ func calcCartAmount(cartPromotionItemList cart.CartPromotionItemList) (result or
 	return *calcAmount
 }
 
-// fixme:生成订单时如果带上了优惠券的信息，会生成多个订单
 func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (result map[string]interface{}, err error) {
 	var filteredCartIds []int64
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
@@ -405,12 +409,12 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	for _, id := range data.CartIds {
 		key := fmt.Sprintf("%s:%s:%s", consts.AVOID_REPEAT_ORDER_PREFIX, formatInt, strconv.FormatInt(id, 10))
 		setNX, err := global.RedisDb.SetNX(key, 1, 2*time.Second).Result()
-		global.Logger.Infof("本次生成订单的id为：%d,获取分布式锁的结果为：%v", id, setNX)
 		if err != nil {
 			// 处理错误
 			global.Logger.Errorf("Redis 错误: %v", err)
 			continue
 		}
+		global.Logger.Infof("打印一下申请分布式锁的key和result:%s,%v", key, setNX)
 
 		//这一段是干嘛的？？
 		var count int64
@@ -463,11 +467,14 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 			GiftGrowth:        cartPromotionItem.Growth,
 		}
 		orderItemList = append(orderItemList, *orderItem)
+		//global.Logger.Infof("当前商品为：%s,计算得到的orderItemList中的GiftIntegration=%d,GiftGrowth=%d", orderItem.ProductName, orderItem.GiftIntegration, orderItem.GiftGrowth)
 	}
 
 	//判断购物车中商品是否都有库存
-	if !hasStock(cartPromotionItemList) {
-		return nil, errors.New("生成订单时，某些商品的库存不足")
+	id, name, stockIsFull := hasStock(cartPromotionItemList)
+	if !stockIsFull {
+		global.Logger.Errorf("生成订单时，id=%d,name=%s的商品库存不足导致生成订单失败", id, name)
+		return nil, errors.New(fmt.Sprintf("生成订单时，%s的库存不足导致生成订单失败", name))
 	}
 	//判断使用使用了优惠券
 	if data.CouponId == 0 {
@@ -518,7 +525,7 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	//todo:This is a special comment.
 	// 这个地方有点坑爹：make([]*cart.CartPromotionItem, 0)初始化内存时，指定长度应该为0。如果指定长度为len(cartPromotionItemList)：
 	// 当cartPromotionItemList的长度=1时，pointerCartPromotionItemList赋值完毕自动扩容变为长度为2的切片，会出现一个nil指针在里面，后续处理的时候会遇到空指针错误
-	pointerCartPromotionItemList := make([]*cart.CartPromotionItem, 0)
+	pointerCartPromotionItemList := make([]*cart.CartPromotionItem, 0, len(cartPromotionItemList))
 	for _, item := range cartPromotionItemList {
 		pointerCartPromotionItemList = append(pointerCartPromotionItemList, &item)
 	}
@@ -575,10 +582,21 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	//0->未确认；1->已确认
 	order.ConfirmStatus = 0
 	order.DeleteStatus = 0
+
 	//计算赠送积分
 	order.Integration = calcGifIntegration(orderItemList)
 	//计算赠送成长值
 	order.Growth = calcGiftGrowth(orderItemList)
+	global.Logger.Infof("打印一下本订单增加的成长值:%d,积分:%d", order.Integration, order.Growth)
+	//todo:没找到给用户增加积分和成长值的逻辑，在这里添加一份异步增加积分和成长值的代码
+	updateIntegrationAndGrowthMessageBody := make(map[string]interface{})
+	updateIntegrationAndGrowthMessageBody["memberId"] = memberId
+	updateIntegrationAndGrowthMessageBody["integration"] = order.Integration
+	updateIntegrationAndGrowthMessageBody["growth"] = order.Growth
+	if err := msg.SendToQueue(consts.UPDATE_USER_INFO.Name, updateIntegrationAndGrowthMessageBody); err != nil {
+		global.Logger.Errorf("更新用户的积分和成长值failed:%v", err)
+	}
+	global.Logger.Infof("更新用户积分和成长值发出消息：%v", updateIntegrationAndGrowthMessageBody)
 	//生成订单号
 	order.OrderSn = generateOrderSn(*order)
 	//设置自动收货天数
@@ -624,7 +642,6 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 		return nil, err
 	}
 	//发送延迟消息取消订单
-	//todo:完善这个消息队列的逻辑
 	if err := sendDelayMessageCancelOrder(order.ID); err != nil {
 		global.Logger.Errorf("向延迟队列发送消息失败:%v", err)
 	}
@@ -697,13 +714,13 @@ func sendDelayMessageCancelOrder(orderId int64) error {
 	return nil
 }
 
-func hasStock(cartPromotionItemList cart.CartPromotionItemList) bool {
+func hasStock(cartPromotionItemList cart.CartPromotionItemList) (productId int64, productName string, result bool) {
 	for _, cartPromotionItem := range cartPromotionItemList {
 		if cartPromotionItem.RealStock <= 0 || cartPromotionItem.RealStock < cartPromotionItem.Quantity {
-			return false
+			return cartPromotionItem.ProductId, cartPromotionItem.ProductName, false
 		}
 	}
-	return true
+	return 0, "", true
 }
 
 // 获取该用户可以使用的优惠券
@@ -1080,7 +1097,7 @@ func copyProperties(item *orderModel.OmsOrder, detail *orderModel.OmsOrderDetail
 	return nil
 }
 
-func PaySuccess(data *receive.PaySuccessReqStruct) (count int, err error) {
+func PaySuccess(data *receive.PaySuccessReqStruct, memberId int64) (count int, err error) {
 	// 开始事务
 	tx := global.Db.Begin()
 	defer func() {
@@ -1135,7 +1152,6 @@ func PaySuccess(data *receive.PaySuccessReqStruct) (count int, err error) {
 		return 0, errors.New("提交事务失败: " + err.Error())
 	}
 	global.RedisDb.Set(key, "1", 15*time.Minute)
-
 	return totalCount, nil
 }
 

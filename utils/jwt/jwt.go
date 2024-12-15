@@ -72,6 +72,7 @@ func ParseToken(tokenStr string) (*Claims, error) {
 }
 
 func GetMemberIdFromCtx(ctx *gin.Context) (int64, error) {
+	//注意：用postman进行测试的时候，token是Bearer+token的格式。不然解析会出问题
 	token := ctx.Request.Header.Get("Authorization")
 
 	claims, err := ParseToken(token)

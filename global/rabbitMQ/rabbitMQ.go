@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var rabbitMQConn *amqp.Connection
+var RabbitMQConn *amqp.Connection
 
 func ReturnInstance() *amqp.Connection {
 	var err error
@@ -19,7 +19,7 @@ func ReturnInstance() *amqp.Connection {
 	b := retry.NewFibonacci(10 * time.Second) //重试的斐波那契机制，最大重试间隔时间为10秒
 	ctx := context.Background()
 	if err := retry.Do(ctx, retry.WithMaxRetries(5, b), func(ctx context.Context) error {
-		rabbitMQConn, err = amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%d/%s",
+		RabbitMQConn, err = amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%d/%s",
 			rabbitMQConfig.User,
 			rabbitMQConfig.Password,
 			rabbitMQConfig.Host,
@@ -35,5 +35,5 @@ func ReturnInstance() *amqp.Connection {
 		log.Fatalf("重试后仍然无法连接RabbitMQ，请排查RabbitMQ服务端是否启动/配置信息是否正确，错误信息为： %v\n", err)
 	}
 
-	return rabbitMQConn
+	return RabbitMQConn
 }

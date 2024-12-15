@@ -11,6 +11,7 @@ var job *cron.Cron
 func InitCrons() {
 	//1.启动消费者
 	go rabbitmqConsumer.StartDelayConsumer()
+	go rabbitmqConsumer.StartUpdateuserinfoConsumer()
 	//2.启动定时任务.貌似没有必要定时取消了，因为这个任务已经交给了rabbitmq的消费者去做
 	//job = cron.New(cron.WithSeconds())
 	//

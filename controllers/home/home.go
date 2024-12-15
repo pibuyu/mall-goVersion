@@ -71,7 +71,7 @@ func (c *HomeController) GetHomeContent(ctx *gin.Context) {
 func (c *HomeController) GetHotProductList(ctx *gin.Context) {
 	//绑定参数
 	var rec receive.GetHotProductListRequestStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
+	if err := ctx.ShouldBind(&rec); err != nil {
 		global.Logger.Errorf("GetHotProductList请求传入参绑定失败: %v", err)
 		c.Response(ctx, "请求参数错误", nil, err)
 		return
@@ -87,7 +87,7 @@ func (c *HomeController) GetHotProductList(ctx *gin.Context) {
 
 func (c *HomeController) GetNewProductList(ctx *gin.Context) {
 	var rec receive.GetNewProductListRequestStruct
-	if err := ctx.ShouldBindJSON(&rec); err != nil {
+	if err := ctx.ShouldBind(&rec); err != nil {
 		global.Logger.Errorf("GetNewProductList请求传入参绑定失败: %v", err)
 		c.Response(ctx, "请求参数错误", nil, err)
 		return

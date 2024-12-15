@@ -11,9 +11,11 @@ type Info struct {
 	SqlConfig *SqlConfigStruct
 	RConfig   *RConfigStruct
 
-	ProjectUrl     string
-	MongoDBConfig  *MongoDBConfigStruct
-	RabbitMQConfig *RabbitMQConfigStruct
+	ProjectUrl          string
+	MongoDBConfig       *MongoDBConfigStruct
+	RabbitMQConfig      *RabbitMQConfigStruct
+	ElasticSearchConfig *ElasticsearchConfigStruct
+	AlipayConfig        *AliPayConfigStruct
 }
 
 func init() {
@@ -54,6 +56,17 @@ type MongoDBConfigStruct struct {
 	Password string `ini:"password"`
 	Port     int    `ini:"port"`
 	Database string `ini:"database"`
+}
+
+type ElasticsearchConfigStruct struct {
+	Host string `ini:"host"`
+	Port int    `ini:"port"`
+}
+
+type AliPayConfigStruct struct {
+	AppId       string `ini:"APPID"`
+	PrivateKey  string `ini:"PrivateKey"`
+	CallbackUrl string `ini:"CallbackUrl"`
 }
 
 func getConfigPath() string {
@@ -100,6 +113,18 @@ func ReturnsInstance() *Info {
 	err = cfg.Section("rabbitmq").MapTo(Config.RabbitMQConfig)
 	if err != nil {
 		log.Fatalf("rabbitmq读取配置文件错误: %v \n", err)
+	}
+	//es config
+	Config.ElasticSearchConfig = &ElasticsearchConfigStruct{}
+	err = cfg.Section("elasticsearch").MapTo(Config.ElasticSearchConfig)
+	if err != nil {
+		log.Fatalf("elasticsearch读取配置文件错误: %v \n", err)
+	}
+	//alipayConfig
+	Config.AlipayConfig = &AliPayConfigStruct{}
+	err = cfg.Section("aliPay").MapTo(Config.AlipayConfig)
+	if err != nil {
+		log.Fatalf("alipay读取配置文件错误：%v\n", err)
 	}
 
 	return Config
