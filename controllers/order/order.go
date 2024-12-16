@@ -143,12 +143,12 @@ func (c *OrderController) PaySuccess(ctx *gin.Context) {
 		c.Response(ctx, "请勿重复支付", 0, nil)
 	}
 	//然后在oms_payment表插入对应的项
-	payment.OrderSn = paymentSn
+	payment.OutTradeNo = paymentSn
 	payment.UserId = memberId
 	payment.PayStatus = 1 //正在支付
 	payment.PayType = strconv.Itoa(rec.PayType)
-	payment.OrderId = strconv.FormatInt(rec.OrderId, 10)
-	payment.Price = orderInfo.PayAmount
+	payment.OrderId = rec.OrderId
+	payment.TotalAmount = float64(orderInfo.PayAmount)
 
 	if err := payment.Insert(); err != nil {
 		global.Logger.Errorf("支付流水号插入失败：%d", rec.OrderId)

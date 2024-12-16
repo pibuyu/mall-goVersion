@@ -2,3 +2,7 @@
 /runtime
 /test
 !/config/config.example.ini
+/global/aliPay/alipayPublicCert.crt
+/global/aliPay/appPublicCert.crt
+/global/aliPay/alipayRootCert.crt
+/global/aliPay/readme.txt

@@ -649,6 +649,11 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 		"order":         order,
 		"orderItemList": orderItemList,
 	}
+	_, err = global.RedisDb.HSet(consts.Order2MemberIdMap, order.OrderSn, memberId).Result()
+	if err != nil {
+		global.Logger.Errorf("生成订单后，向hset插入orderSn和memberId的映射关系failed:%v", err)
+	}
+
 	return result, nil
 }
 

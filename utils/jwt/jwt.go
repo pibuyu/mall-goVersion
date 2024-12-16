@@ -56,6 +56,9 @@ func NextToken(uid int64) string {
 // ParseToken 解析 Token
 func ParseToken(tokenStr string) (*Claims, error) {
 	//todo:前端放进去的token的格式为：response.data.tokenHead+response.data.token;也就是在token前面加上了  Bearer 前缀 ,解析的时候去掉就行
+	if len(tokenStr) < 6 {
+		return nil, errors.New("未获取到token")
+	}
 	tokenStr = tokenStr[6:]
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return Hotkey, nil

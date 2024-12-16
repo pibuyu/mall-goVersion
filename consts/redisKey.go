@@ -15,4 +15,6 @@ const (
 	//用户下单相关
 	AVOID_REPEAT_ORDER_PREFIX   = "AVOID_REPEAT_ORDER_PREFIX"   //避免重复生成订单
 	AVOID_REPEAT_PAYMENT_PREFIX = "AVOID_REPEAT_PAYMENT_PREFIX" //避免重复支付
+
+	Order2MemberIdMap = "Order2MemberIdMap"
 )

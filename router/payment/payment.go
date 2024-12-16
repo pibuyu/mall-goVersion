@@ -13,6 +13,6 @@ func (c *PaymentRouter) InitPaymentRouter(Router *gin.RouterGroup) {
 	{
 		paymentController := new(payment.PaymentController)
 		paymentRouter.GET("/webPay", paymentController.WebPay)
-		paymentRouter.GET("/callback", paymentController.Callback)
+		paymentRouter.POST("/callback", paymentController.AliPayCallback)
 	}
 }
