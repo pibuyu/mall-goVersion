@@ -27,7 +27,7 @@ func Cors() gin.HandlerFunc {
 		}
 		if origin != "" {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-			//这是允许访问所有域
+			//允许访问所有域
 			c.Header("Access-Control-Allow-Origin", "*")
 			//服务器支持的所有跨域请求的方法,为了避免浏览次请求的多次'预检'请求
 			c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE,UPDATE")

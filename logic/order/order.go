@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"gomall/consts"
 	"gomall/global"
@@ -11,6 +12,7 @@ import (
 	cartLogic "gomall/logic/cart"
 	"gomall/models/cart"
 	"gomall/models/coupon"
+	"gomall/models/home"
 	"gomall/models/integration"
 	"gomall/models/order"
 	orderModel "gomall/models/order"
@@ -18,6 +20,7 @@ import (
 	"gomall/utils/jwt"
 	"gomall/utils/msg"
 	"gorm.io/gorm"
+	"hash/crc32"
 	"strconv"
 	"strings"
 	"time"
@@ -400,12 +403,64 @@ func calcCartAmount(cartPromotionItemList cart.CartPromotionItemList) (result or
 	return *calcAmount
 }
 
+var (
+	SEGEMENT_SIZE            = 50
+	INVENTORY_PRODUCT_PREFIX = "INVENTORY_PRODUCT_PREFIX_" //商品库存hash结构的key
+	UPDATE_PRODUCT_LOCK      = "UPDATE_PRODUCT_LOCK"
+)
+var (
+	SERVER_BUSY_ERROR = "服务器繁忙，请稍后再试"
+)
+
+var (
+	release_product_stock_dis_lock_script = `
+		local lock_key=KEYS[1]
+		local lock_holder=ARGV[1] --锁的持有者
+			
+		--若锁不存在，则返回释放成功
+		if redis.call('exists',lock_key)==0 then
+			return 'LOCK_RELEASED'
+		else
+			--检查锁的持有者和当前试图解锁的进程是否一致
+			if redis.call('get',lock_key)~=lock_holder then
+				return 'LOCK_UNLEASED'
+			else
+				redis.call('del',lock_key)
+				return 'LOCK_RELEASED'
+			end
+		end
+	`
+
+	deduct_product_stock_script = `
+		local inventoryKey = KEYS[1]
+		local bucketNo = ARGV[1]
+		local decrementQty = tonumber(ARGV[2])
+
+		--查询库存
+		local currentStock =tonumber(redis.call('HGET',inventoryKey,bucketNo))
+		if currentStock ==nil then
+			return "库存段不存在"
+		end
+		
+		--尝试扣减库存
+		if currentStock <decrementQty then
+			return "库存数不足,扣减失败"
+		end
+
+		--执行扣减库存
+		redis.call('HINCRBY',inventoryKey,bucketNo,-decrementQty)
+
+		--返回更新后的库存数
+		return redis.call('HGET',inventoryKey,bucketNo)
+	`
+)
+
 func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (result map[string]interface{}, err error) {
 	var filteredCartIds []int64
 	memberId, _ := jwt.GetMemberIdFromCtx(ctx)
 	formatInt := strconv.FormatInt(memberId, 10)
 
-	//从cartIds里剔除掉重复下单的id
+	//1.从cartIds里剔除掉重复下单的id,避免短时间内多次点击生成重复订单
 	for _, id := range data.CartIds {
 		key := fmt.Sprintf("%s:%s:%s", consts.AVOID_REPEAT_ORDER_PREFIX, formatInt, strconv.FormatInt(id, 10))
 		setNX, err := global.RedisDb.SetNX(key, 1, 2*time.Second).Result()
@@ -414,7 +469,6 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 			global.Logger.Errorf("Redis 错误: %v", err)
 			continue
 		}
-		global.Logger.Infof("打印一下申请分布式锁的key和result:%s,%v", key, setNX)
 
 		//这一段是干嘛的？？
 		var count int64
@@ -426,10 +480,92 @@ func GenerateOrder(data *receive.GenerateOrderReqStruct, ctx *gin.Context) (resu
 	}
 	data.CartIds = filteredCartIds
 
-	//应该判断一下cartIds是否为空，如果为空应该直接返回成功了，不然会生成大量的空订单
+	//判断一下cartIds是否为空，如果为空应该直接返回成功了，不然会生成大量的空订单
 	if len(filteredCartIds) == 0 {
 		return nil, nil
 	}
+
+	lockGoroutineId := uuid.New().String()
+
+	//2.todo:应该根据过滤出的 filteredCartIds 先判断库存是否足够;因为一次可能下单多件商品，可以考虑分多个线程来分别处理每个下单商品
+	for _, id := range filteredCartIds {
+		cartItem := &cart.OmsCartItem{}
+		if err := global.Db.Model(&cart.OmsCartItem{}).Where("id = ?", id).Find(&cartItem).Error; err != nil {
+			global.Logger.Errorf("根据cartId倒查商品id出错：%v", err)
+		}
+		productId := cartItem.ProductId
+		inventoryProductKey := fmt.Sprintf("%s%s", INVENTORY_PRODUCT_PREFIX, strconv.FormatInt(productId, 10))
+		//2.1 先查询库存字段是否在redis中
+		exist, _ := global.RedisDb.Exists(inventoryProductKey).Result()
+		if exist == 0 {
+			//竞争分布式锁，更新当前商品的库存数
+			updateProductLockKey := fmt.Sprintf("%s%s", UPDATE_PRODUCT_LOCK, strconv.FormatInt(productId, 10))
+			global.Logger.Infof("当前商品的库存段miss，key=%s", updateProductLockKey)
+			lockRes, _ := global.RedisDb.SetNX(updateProductLockKey, lockGoroutineId, 500*time.Millisecond).Result()
+			if lockRes {
+				//2.1.1 查询MySQL库存并更新redis
+				oneProduct := &home.PmsProduct{}
+				if err := global.Db.Model(&home.PmsProduct{}).Where("id = ?", productId).Find(&oneProduct).Error; err != nil {
+					global.Logger.Errorf("query product: %d info failed: %v", productId, err)
+				}
+				global.Logger.Infof("打印一下查询到的库存数，检查查询是否正确:%d %d", productId, oneProduct.Stock)
+				//2.2.2 将库存分段并存放在redis中,这里将每个库存段置为10吧
+				segementNum := (oneProduct.Stock + SEGEMENT_SIZE - 1) / SEGEMENT_SIZE //计算分段数量
+				totalStock := oneProduct.Stock                                        //临时变量记录库存数
+				segementInfo := make(map[string]interface{})                          //创建一个map存放分段库存
+				//将库存分段
+				for i := 1; i <= segementNum; i++ {
+					if totalStock >= SEGEMENT_SIZE {
+						segementInfo[strconv.Itoa(i)] = SEGEMENT_SIZE
+						totalStock -= SEGEMENT_SIZE
+					} else { //最后一段
+						segementInfo[strconv.Itoa(i)] = totalStock
+						break
+					}
+				}
+				//将分段库存写入hash结构
+				if _, err = global.RedisDb.HMSet(inventoryProductKey, segementInfo).Result(); err != nil {
+					global.Logger.Errorf("write segement stock of key:%s failed: %v", inventoryProductKey, err)
+				} else {
+					global.Logger.Infof("write segement stock of key:%s success", inventoryProductKey)
+				}
+				//2.2.3 释放分布式锁
+				releaseLockRes, err := global.RedisDb.Eval(release_product_stock_dis_lock_script, []string{updateProductLockKey}, lockGoroutineId).Result()
+				if releaseLockRes != "LOCK_RELEASED" || err != nil {
+					global.Logger.Errorf("goroutine %s try to release lock of product stock: %s failed : %v", lockGoroutineId, updateProductLockKey, err)
+				}
+			} else {
+				//没有竞争到锁，就让用户重试
+				return nil, errors.New(SERVER_BUSY_ERROR)
+			}
+		}
+		//2.2 现在redis中已经成功对库存分段
+		//2.2.1 对memberId hash并取模，将请求映射到某个库存段上
+		hashValue := int64(crc32.ChecksumIEEE([]byte(strconv.FormatInt(memberId, 10))))
+		segementLen, _ := global.RedisDb.HLen(inventoryProductKey).Result()
+		bucketNo := strconv.FormatInt((hashValue%(segementLen+1))+1, 10)
+		//2.2.2 已经映射到库存段上了，现在尝试预扣减库存
+		//首先需要获取扣减库存的分布式锁,key=hash名称+库存段名称
+		deductStockLockKey := fmt.Sprintf("%s%s", inventoryProductKey, bucketNo)
+		getDeductLockRes, _ := global.RedisDb.SetNX(deductStockLockKey, lockGoroutineId, 500*time.Millisecond).Result()
+		if getDeductLockRes {
+			//扣减库存
+			deductProductStockRes, _ := global.RedisDb.Eval(deduct_product_stock_script, []string{inventoryProductKey}, bucketNo, "1").Result()
+			if deductProductStockRes == "库存段不存在" || deductProductStockRes == "库存数不足,扣减失败" {
+				global.Logger.Errorf("扣减库存：key=%s，field=%s failed:%v", deductStockLockKey, bucketNo, deductProductStockRes)
+			} else {
+				global.Logger.Infof("扣减库存：%s_%s success,返回值为: %v", deductStockLockKey, bucketNo, deductProductStockRes)
+			}
+			//释放分布式锁
+			releaseLockRes, _ := global.RedisDb.Eval(release_product_stock_dis_lock_script, []string{deductStockLockKey}, lockGoroutineId).Result()
+			if releaseLockRes != "LOCK_RELEASED" {
+				global.Logger.Errorf("release lock of deduct product stock: %s failed: %v", deductStockLockKey, err)
+			}
+		} else {
+			return nil, errors.New(SERVER_BUSY_ERROR)
+		}
+	}
+
 	orderItemList := make([]order.OmsOrderItem, 0)
 	//校验收货地址
 	if data.MemberReceiveAddressId == 0 {
@@ -1010,8 +1146,7 @@ func List(data *receive.ListReqStruct, memberId int64) (result []orderModel.OmsO
 	if data.Status != -1 {
 		query = query.Where("status = ?", data.Status)
 	}
-	//todo:This is a special comment.
-	// order需要放在find之前，否则不生效。
+	//todo:This is a special comment. order需要放在find之前，否则不生效。
 	if err = query.Offset((data.PageNum - 1) * data.PageSize).
 		Limit(data.PageSize).
 		Order("create_time desc").

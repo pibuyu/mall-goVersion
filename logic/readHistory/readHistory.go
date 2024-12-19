@@ -27,14 +27,14 @@ func CreateReadHistory(data *receive.CreateReadHistoryReqStruct, memberId int64)
 		Where("id = ?", data.ProductId).Where("delete_status = ?", 0).First(&product).Error; err != nil {
 		return errors.New("创建浏览记录时，查询商品信息failed:" + err.Error())
 	}
-	//然后开始构造readHistory
+	if product.Id == 0 {
+		return errors.New("商品不存在")
+	}
+	//然后开始构造readHistory的用户信息和商品信息
 	readHistory.MemberID = memberId
 	readHistory.MemberNickname = user.Nickname
 	readHistory.MemberIcon = user.Icon
 	readHistory.CreateTime = time.Now()
-	if product.Id == 0 {
-		return errors.New("商品不存在")
-	}
 	readHistory.ProductID = data.ProductId
 	readHistory.ProductName = product.Name
 	readHistory.ProductSubTitle = product.SubTitle

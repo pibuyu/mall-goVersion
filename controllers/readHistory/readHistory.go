@@ -21,6 +21,7 @@ func (c *ReadHistoryController) Create(ctx *gin.Context) {
 		if err != nil {
 			c.Response(ctx, "用户身份校验错误", nil, err)
 		}
+		global.Logger.Infof("user %d try to create read history of product %d", memberId, rec.ProductId)
 		if err := readHistory.CreateReadHistory(rec, memberId); err != nil {
 			c.Response(ctx, "插入浏览记录出错", 0, err)
 			return

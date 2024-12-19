@@ -120,7 +120,7 @@ func ReturnsInstance() *Info {
 	if err != nil {
 		log.Fatalf("elasticsearch读取配置文件错误: %v \n", err)
 	}
-	//alipayConfig
+	//alipay config
 	Config.AlipayConfig = &AliPayConfigStruct{}
 	err = cfg.Section("aliPay").MapTo(Config.AlipayConfig)
 	if err != nil {

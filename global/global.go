@@ -29,7 +29,7 @@ var (
 	AliPay *alipay.Client
 )
 
-// 在这里执行那些实例化的init函数，然后返回预定义的对象呗
+// 执行ReturnsInstance函数，返回全局对象
 func init() {
 	Logger = log.ReturnsInstance()
 	RedisDb = RedisDbFun.ReturnsInstance()
