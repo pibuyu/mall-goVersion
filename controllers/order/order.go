@@ -10,6 +10,8 @@ import (
 	"gomall/utils/jwt"
 	"gomall/utils/response"
 	"gomall/utils/uniqueid"
+	"os"
+	"runtime/pprof"
 	"strconv"
 )
 
@@ -87,6 +89,19 @@ func (c *OrderController) GenerateConfirmOrder(ctx *gin.Context) {
 }
 
 func (c *OrderController) GenerateOrder(ctx *gin.Context) {
+	//创建pprof文件
+	file, err := os.Create("generateOrderCpu.pprof")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		_ = file.Close()
+	}()
+
+	//开始cpu性能采样
+	_ = pprof.StartCPUProfile(file)
+	defer pprof.StopCPUProfile()
+
 	if rec, err := controller.ShouldBind(ctx, new(receive.GenerateOrderReqStruct)); err == nil {
 		oneOrder, err := order.GenerateOrder(rec, ctx)
 		if err != nil {
@@ -197,8 +212,4 @@ func (c *OrderController) CreateReturnApply(ctx *gin.Context) {
 		}
 		c.Response(ctx, "创建退货订单成功", 1, nil)
 	}
-}
-
-func (c *OrderController) AliPay(ctx *gin.Context) {
-
 }

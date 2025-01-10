@@ -2,6 +2,7 @@ package rabbitmqConsumer
 
 import (
 	"encoding/json"
+	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"gomall/consts"
 	"gomall/global"
@@ -22,13 +23,19 @@ func StartDelayConsumer() {
 	if err != nil {
 		log.Fatalf("连接 RabbitMQ 失败: %v", err)
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
+
+	fmt.Println("延时队列消费者启动成功......")
 
 	ch, err := conn.Channel()
 	if err != nil {
 		log.Fatalf("无法打开通道: %v", err)
 	}
-	defer ch.Close()
+	defer func() {
+		_ = ch.Close()
+	}()
 
 	// 创建死信队列
 	dlqName := "dlq"
@@ -86,13 +93,18 @@ func StartUpdateuserinfoConsumer() {
 	if err != nil {
 		log.Fatalf("连接 RabbitMQ 失败: %v", err)
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
+	fmt.Println("延时队列消费者启动成功......")
 	ch, err := conn.Channel()
 	if err != nil {
 		log.Fatalf("无法打开通道: %v", err)
 	}
-	defer ch.Close()
+	defer func() {
+		_ = ch.Close()
+	}()
 
 	_, err = ch.QueueDeclare(
 		consts.UPDATE_USER_INFO.Name, // 队列名称
